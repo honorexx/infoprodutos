@@ -52,11 +52,11 @@ export function AppSidebar({
       className="sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex"
     >
       <div className={cn("flex h-16 items-center gap-2.5 px-4", collapsed && "justify-center px-0")}>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-accent text-sidebar-primary">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-navy-950 text-white">
           <LogoMark className="size-4" />
         </span>
         {!collapsed && (
-          <span className="whitespace-nowrap font-serif text-[1.1rem] leading-none font-medium tracking-tight italic">
+          <span className="whitespace-nowrap font-serif text-[1.1rem] leading-none font-medium tracking-tight text-sidebar-foreground italic">
             Infoprodutos
           </span>
         )}
@@ -77,7 +77,7 @@ export function AppSidebar({
         {upcoming.length > 0 && (
           <div className="flex flex-col gap-0.5">
             {!collapsed && (
-              <p className="px-2.5 pb-1 text-[10px] font-semibold tracking-[0.14em] text-sidebar-muted uppercase">
+              <p className="px-2.5 pb-1 text-[10px] font-semibold tracking-[0.14em] text-sidebar-muted/80 uppercase">
                 Próximas fases
               </p>
             )}
@@ -92,7 +92,7 @@ export function AppSidebar({
         type="button"
         onClick={onToggleCollapsed}
         className={cn(
-          "mx-3 mb-1 flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium text-sidebar-muted transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+          "mx-3 mb-1 flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium text-sidebar-muted transition-colors hover:bg-primary-hover hover:text-sidebar-foreground",
           collapsed && "justify-center px-0",
         )}
         aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
@@ -103,12 +103,12 @@ export function AppSidebar({
 
       <div className="border-t border-sidebar-border p-3">
         <div className={cn("flex items-center gap-2.5 rounded-md px-1 py-1.5", collapsed && "justify-center px-0")}>
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-navy-950 text-xs font-semibold text-white">
             {initials}
           </span>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{user.name}</p>
+              <p className="truncate text-sm font-medium text-sidebar-foreground">{user.name}</p>
               <p className="truncate text-xs text-sidebar-muted">
                 {user.roles.map((r) => ROLE_LABELS[r] ?? r).join(" · ")}
               </p>
@@ -134,7 +134,7 @@ function SidebarLink({
   const content = item.comingSoon ? (
     <span
       className={cn(
-        "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium text-sidebar-foreground/40",
+        "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium text-sidebar-muted/70",
         collapsed && "justify-center px-0",
       )}
       aria-disabled="true"
@@ -143,7 +143,10 @@ function SidebarLink({
       {!collapsed && (
         <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
           <span className="truncate">{item.label}</span>
-          <Badge variant="secondary" className="shrink-0 bg-sidebar-accent/50 text-sidebar-foreground/50">
+          <Badge
+            variant="secondary"
+            className="shrink-0 border-sidebar-border bg-navy-950/10 text-sidebar-muted"
+          >
             Em breve
           </Badge>
         </span>
@@ -154,14 +157,14 @@ function SidebarLink({
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
-        collapsed && "justify-center px-0",
+        "flex items-center gap-3 rounded-md border-l-2 px-2.5 py-2 text-sm font-medium transition-colors",
+        collapsed && "justify-center border-l-0 px-0",
         active
-          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-          : "text-sidebar-foreground/75 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+          ? "border-navy-950 bg-sidebar-accent text-sidebar-foreground"
+          : "border-transparent text-sidebar-muted hover:bg-primary-hover hover:text-sidebar-foreground",
       )}
     >
-      <Icon className={cn("size-4 shrink-0", active && "text-sidebar-primary")} />
+      <Icon className={cn("size-4 shrink-0", active && "text-navy-950")} />
       {!collapsed && <span className="truncate">{item.label}</span>}
     </Link>
   );

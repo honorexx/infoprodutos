@@ -32,7 +32,11 @@ export function ProgressBar({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-label={ariaLabel}
-      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-muted", trackClassName, className)}
+      className={cn(
+        "h-1.5 w-full overflow-hidden rounded-full bg-progress-track",
+        trackClassName,
+        className,
+      )}
     >
       <motion.div
         className={cn("h-full rounded-full bg-primary", indicatorClassName)}

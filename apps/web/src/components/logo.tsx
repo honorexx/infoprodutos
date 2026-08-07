@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Marca "Infoprodutos": três hastes ascendentes (progresso/crescimento) com o
- * destaque em verde na haste mais alta. Ver docs/DESIGN_SYSTEM.md#marca.
+ * Marca "Infoprodutos": três hastes ascendentes (progresso).
+ * Destaque dourado (`fill-primary`) na haste mais alta — Official Brand Color System v1.
  */
 export function LogoMark({ className }: { className?: string }) {
   return (
@@ -14,7 +14,7 @@ export function LogoMark({ className }: { className?: string }) {
     >
       <rect x="3" y="13" width="4" height="8" rx="1" fill="currentColor" opacity="0.45" />
       <rect x="10" y="8" width="4" height="13" rx="1" fill="currentColor" opacity="0.75" />
-      <rect x="17" y="3" width="4" height="18" rx="1" className="fill-accent" />
+      <rect x="17" y="3" width="4" height="18" rx="1" className="fill-primary" />
     </svg>
   );
 }
@@ -32,7 +32,7 @@ export function Logo({
     <span className={cn("inline-flex items-center gap-2.5", className)}>
       <span
         className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-md bg-foreground text-background",
+          "flex size-8 shrink-0 items-center justify-center rounded-md bg-navy-850 text-foreground",
           markClassName,
         )}
       >

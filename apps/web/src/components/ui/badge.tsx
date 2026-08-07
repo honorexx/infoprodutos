@@ -13,7 +13,7 @@ const badgeVariants = cva(
         secondary:
           "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
         accent: "bg-accent/12 text-accent [a]:hover:bg-accent/20",
-        gold: "bg-gold/20 text-gold-foreground [a]:hover:bg-gold/30",
+        gold: "bg-primary-soft text-primary-hover [a]:hover:bg-primary/20",
         success: "bg-success/12 text-success [a]:hover:bg-success/20",
         warning: "bg-warning/20 text-warning-foreground [a]:hover:bg-warning/30",
         info: "bg-info/12 text-info [a]:hover:bg-info/20",

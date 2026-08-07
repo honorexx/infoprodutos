@@ -220,7 +220,7 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
                   key={streamUrl}
                   src={streamUrl}
                   controls
-                  className="aspect-video w-full rounded-lg bg-black"
+                  className="aspect-video w-full rounded-lg bg-navy-950"
                   onEnded={() => void markComplete()}
                 />
               ) : (
