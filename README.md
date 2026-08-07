@@ -76,13 +76,22 @@ export $(grep -v '^#' .env | xargs)
 mvn spring-boot:run
 ```
 
-Backend — no IntelliJ: já existe uma run configuration pronta, **"ApiApplication (dev)"**, com todas as variáveis de ambiente preenchidas (apontando para o Postgres do script acima). Se o IntelliJ ainda não tiver importado `apps/api/pom.xml` como projeto Maven, ele deve perguntar automaticamente ao abrir o projeto ("Load Maven Project"/"Import Changes") — aceite, e a run configuration passa a funcionar direto.
+Backend — no IntelliJ: use a run configuration **"Infoprodutos (API + Web)"** no seletor de Run (ao lado do botão verde). Ela sobe a API em `:8090` **e** o frontend em `:3000` juntos. Se preferir só a API, use **"ApiApplication (dev)"**.
 
-Frontend:
+Se o IntelliJ ainda não tiver importado `apps/api/pom.xml` como projeto Maven, aceite "Load Maven Project"/"Import Changes". Depois de criar/atualizar as configs, se a lista de Run não mostrar a nova, use **Run → Edit Configurations** ou reabra o projeto.
+
+Frontend (manual, se não usar a config composta):
+
+```bash
+./scripts/start-local-postgres.sh   # se o banco ainda não estiver no ar
+./scripts/dev-web.sh                # http://localhost:3000 → API em :8090
+```
+
+Ou:
 
 ```bash
 cd apps/web
-cp .env.example .env.local   # ajuste NEXT_PUBLIC_API_URL se a API não estiver em :8080
+cp .env.example .env.local   # default local: API em :8090
 pnpm install
 pnpm dev
 ```

@@ -43,7 +43,7 @@ app:
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
   api:
-    public-base-url: ${API_PUBLIC_BASE_URL:http://localhost:8090}
+    public-base-url: ${API_PUBLIC_BASE_URL:http://localhost:8080}
   video-storage:
     local-root: ${VIDEO_STORAGE_LOCAL_ROOT:./data/videos}
     max-file-bytes: ${VIDEO_STORAGE_MAX_FILE_BYTES:524288000}

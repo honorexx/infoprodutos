@@ -20,7 +20,7 @@ Este é o documento central de rastreabilidade de decisões técnicas. Cada entr
 | 3 | Múltiplas instâncias da API em produção desde o início (afeta necessidade de lock distribuído em jobs)? | `ARCHITECTURE.md` §6 | Assumir que sim e já implementar `FOR UPDATE SKIP LOCKED` (baixo custo) |
 | 4 | Upload de vídeo em produção: direto pela API ou presigned URL para o storage? | `ARCHITECTURE.md` §7 | Presigned URL |
 | 5 | Provedor de hospedagem de produção (AWS, GCP, Railway, Fly.io, VPS...)? | `ARCHITECTURE.md` §11 | Não definido; arquitetura é agnóstica |
-| 6 | Regra exata de conclusão de aula (threshold de % assistido, ex.: 90%?) | `PRD.md` §7 | 90% do vídeo OU marcação manual |
+| 6 | Regra exata de conclusão de aula (threshold de % assistido, ex.: 90%?) | `PRD.md` §7 | **DECIDIDO na Fase 4:** ≥90% do vídeo (heartbeat) OU marcação manual; aula sem vídeo só manual; status monotônico |
 | 7 | Nota final de um quiz = melhor tentativa ou média das tentativas? | `PRD.md` §8 | Melhor tentativa (`MAX(score)`) |
 | 8 | Todo `Quiz` de módulo publicado é obrigatório para certificado, ou há exercícios opcionais? | `PRD.md` §8 | Todos obrigatórios no MVP |
 | 9 | Metas numéricas de sucesso do produto (nenhuma foi fornecida) | `PRD.md` §9 | Sem meta fixada; métricas apenas observacionais no MVP |
@@ -100,7 +100,7 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 |---|---|---|
 | — | Combinação tipográfica | **DECIDIDO:** Fraunces (heading, serifado editorial) + Public Sans (interface) + Geist Mono (código), via `next/font/google`, para evitar a combinação genérica "Inter em tudo" |
 | — | Cor primária vs. cor de destaque | **DECIDIDO:** primária = tinta quase-preta (confiante, editorial); verde sofisticado reservado como `accent`, usado com moderação (links, estado ativo, foco, tags) — não pinta grandes áreas |
-| — | Itens de menu ainda não implementados (Alunos, Certificados, Configurações) | **DECIDIDO:** aparecem na navegação lateral com selo "Em breve". **Processamentos de IA** passou a ser rota real (`/ai`) após a Fase 3 |
+| — | Itens de menu ainda não implementados (Certificados, Configurações) | **DECIDIDO:** aparecem na navegação lateral com selo "Em breve". **Processamentos de IA** (`/ai`) e **Meus cursos** (`/my-courses`, alunos) são rotas reais |
 | — | Métricas do dashboard sem dado real disponível ainda (alunos ativos, taxa de conclusão) | **DECIDIDO:** placeholders explícitos "Em breve nas próximas fases", nunca com número inventado. Métricas com dado real (`/courses`, `/users`) são calculadas em runtime. O dashboard demo com mocks de alunos/IA foi removido |
 
 ## Decisões reais da Fase 3 (vídeos + IA — implementação, 2026-08-06)
@@ -114,6 +114,17 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | — | Dashboard demonstrativo anterior | **DECIDIDO:** resetado para dados reais da Fase 2; mocks de alunos/certificados/IA removidos da home autenticada |
 | — | Depoimentos e conteúdo social da landing | **DECIDIDO:** nenhum depoimento, nome de aluno ou número de negócio foi inventado; a seção existe como espaço reservado explícito até haver conteúdo real |
 | — | Preview de curso na landing pública | **DECIDIDO:** dado ilustrativo, rotulado como "Exemplo" na própria UI — a listagem pública real de cursos publicados depende de um endpoint público que ainda não existe (endpoint atual de cursos exige autenticação) |
+
+## Decisões reais da Fase 4 (matrículas e progresso — implementação, 2026-08-07)
+
+| # | Item | Resolução |
+|---|---|---|
+| Pergunta #6 | Conclusão de aula | **DECIDIDO:** `COMPLETED` quando `last_position_seconds >= ceil(90% * duration)` via heartbeat, ou `POST .../complete` manual; sem vídeo → só manual; não regride de `COMPLETED` |
+| — | Acesso sem matrícula | **DECIDIDO: 403** (critério do ROADMAP), mensagem explícita de matrícula necessária |
+| — | `FREE_PREVIEW` | **DECIDIDO:** aula publicada em curso publicado libera `stream-url`/materiais sem matrícula; `ENROLLED_ONLY` exige `Enrollment.status = ACTIVE` |
+| — | Modelo de matrícula | **DECIDIDO:** `UNIQUE(student, course)`; suspend/cancel/reativar = mudança de `status` + `AuditLog` (sem histórico versionado na linha) |
+| — | Quem matricula | **DECIDIDO:** `SUPER_ADMIN` ou `INSTRUCTOR` dono; aluno não se auto-matricula no MVP |
+| — | UI | **DECIDIDO:** painel de matrículas no construtor do curso; aluno em `/my-courses` + player com heartbeat |
 
 ## Limitações conhecidas do MVP (aceitas conscientemente)
 
@@ -132,3 +143,4 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | 2026-08-06 | Adicionada seção "Decisões reais da Fase 1 (implementação)" após "ARQUITETURA APROVADA" e execução da Fase 1 (fundação, autenticação e RBAC) |
 | 2026-08-06 | Adicionada seção "Decisões do sistema visual (Design System)" após a implementação da identidade visual oficial da plataforma (paleta, tipografia, componentes, estrutura das três experiências) |
 | 2026-08-06 | Adicionada seção "Decisões reais da Fase 3" (vídeos, storage local, pipeline de IA mock, revisão humana, reset do dashboard demo) |
+| 2026-08-07 | Adicionada seção "Decisões reais da Fase 4" (matrículas, progresso 90%/manual, gate de vídeo, área do aluno); pergunta #6 fechada |

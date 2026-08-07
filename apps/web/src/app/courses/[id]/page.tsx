@@ -29,6 +29,7 @@ import { apiFetch, apiUpload, ApiError } from "@/lib/api-client";
 import { courseFormSchema, lessonFormSchema, moduleFormSchema } from "@/lib/validation";
 import type { CourseFormInput, LessonFormInput, ModuleFormInput } from "@/lib/validation";
 import type { AiJob, Course, CourseModule, Lesson } from "@/lib/types";
+import { CourseEnrollmentsPanel } from "@/components/courses/course-enrollments-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -659,6 +660,8 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
           </ul>
         )}
       </div>
+
+      <CourseEnrollmentsPanel courseId={courseId} />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">

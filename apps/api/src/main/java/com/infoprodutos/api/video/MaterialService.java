@@ -6,6 +6,7 @@ import com.infoprodutos.api.common.exception.NotFoundException;
 import com.infoprodutos.api.course.CourseAccessGuard;
 import com.infoprodutos.api.course.LessonService;
 import com.infoprodutos.api.course.domain.Lesson;
+import com.infoprodutos.api.enrollment.EnrollmentAccessGuard;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.video.domain.LessonMaterial;
 import com.infoprodutos.api.video.domain.StorageProviderType;
@@ -28,13 +29,14 @@ public class MaterialService {
     private final LessonMaterialRepository materialRepository;
     private final LessonService lessonService;
     private final CourseAccessGuard accessGuard;
+    private final EnrollmentAccessGuard enrollmentAccessGuard;
     private final VideoStorageProvider storageProvider;
     private final AuditService auditService;
 
     @Transactional(readOnly = true)
     public List<MaterialResponse> list(UUID lessonId, CustomUserDetails principal) {
         Lesson lesson = lessonService.findActiveOrThrow(lessonId);
-        accessGuard.requireManageAccess(lesson.getModule().getCourse().getId(), principal);
+        enrollmentAccessGuard.requireLessonContentAccess(lesson, principal);
         return materialRepository.findByLessonIdAndDeletedAtIsNullOrderByOrderIndexAsc(lessonId).stream()
                 .map(MaterialResponse::from)
                 .toList();

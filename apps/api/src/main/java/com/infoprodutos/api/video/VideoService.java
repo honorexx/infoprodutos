@@ -10,6 +10,7 @@ import com.infoprodutos.api.course.CourseAccessGuard;
 import com.infoprodutos.api.course.LessonService;
 import com.infoprodutos.api.course.domain.Lesson;
 import com.infoprodutos.api.course.repository.LessonRepository;
+import com.infoprodutos.api.enrollment.EnrollmentAccessGuard;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.video.domain.ProcessingStatus;
 import com.infoprodutos.api.video.domain.StorageProviderType;
@@ -45,6 +46,7 @@ public class VideoService {
     private final LessonRepository lessonRepository;
     private final LessonService lessonService;
     private final CourseAccessGuard accessGuard;
+    private final EnrollmentAccessGuard enrollmentAccessGuard;
     private final VideoStorageProvider storageProvider;
     private final VideoStorageProperties storageProperties;
     private final StreamUrlSigner streamUrlSigner;
@@ -150,21 +152,35 @@ public class VideoService {
     }
 
     @Transactional(readOnly = true)
-    public StreamUrlResponse streamUrl(UUID videoId, CustomUserDetails principal) {
+    public StreamUrlResponse streamUrl(
+            UUID videoId, CustomUserDetails principal, jakarta.servlet.http.HttpServletRequest request) {
         VideoAsset asset = findOrThrow(videoId);
         requireViewAccess(asset, principal);
         if (asset.getUploadStatus() != UploadStatus.UPLOADED || asset.getProcessingStatus() != ProcessingStatus.READY) {
             throw new BadRequestException("Vídeo ainda não está pronto para reprodução.");
         }
         var signed = streamUrlSigner.sign(videoId);
-        // Em local o front chama a API diretamente; a URL assinada aponta para o endpoint de stream.
+        // Usa o host/porta da própria requisição (evita API_PUBLIC_BASE_URL desalinhada da porta real).
+        String base = resolvePublicBaseUrl(request);
         String url = String.format(
                 "%s/api/v1/videos/%s/stream?expires=%d&sig=%s",
-                trimTrailingSlash(apiUrlProperties.getPublicBaseUrl()),
+                base,
                 videoId,
                 signed.expiresAt(),
                 signed.signature());
         return new StreamUrlResponse(url, signed.expiresAt(), signed.ttlSeconds());
+    }
+
+    private String resolvePublicBaseUrl(jakarta.servlet.http.HttpServletRequest request) {
+        if (request != null) {
+            String scheme = request.getScheme();
+            String host = request.getServerName();
+            int port = request.getServerPort();
+            boolean defaultPort = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443);
+            String base = defaultPort ? scheme + "://" + host : scheme + "://" + host + ":" + port;
+            return trimTrailingSlash(base);
+        }
+        return trimTrailingSlash(apiUrlProperties.getPublicBaseUrl());
     }
 
     @Transactional(readOnly = true)
@@ -223,10 +239,7 @@ public class VideoService {
             throw new ForbiddenOperationException("Sem permissão para acessar este vídeo.");
         }
         Lesson lesson = lessonService.findActiveOrThrow(asset.getLessonId());
-        // Nesta fase: dono/admin. Matrícula entra na Fase 4.
-        if (!accessGuard.canManage(lesson.getModule().getCourse().getId(), principal)) {
-            throw new ForbiddenOperationException("Sem permissão para acessar este vídeo.");
-        }
+        enrollmentAccessGuard.requireLessonContentAccess(lesson, principal);
     }
 
     private void markFailed(VideoAsset asset, String reason) {

@@ -84,15 +84,15 @@ Critérios de aceite:
 - [x] Job assíncrono com idempotência; mock de provedores; validação estrutural; revisão/aprovação/publicação humana.
 - [x] E2E com `devTranscriptText` (perfil `dev`) validado ponta a ponta.
 
-## Fase 4 — Matrículas e Progresso
+## Fase 4 — Matrículas e Progresso ✅ CONCLUÍDA (2026-08-07)
 
-Escopo: `Enrollment` (concessão manual, suspensão, cancelamento), `LessonProgress`; regra de conclusão de aula (ver `PRD.md` §7, pendente confirmação antes desta fase); bloqueio de acesso a vídeo/curso sem matrícula ativa; cálculo de progresso por módulo e curso.
+Escopo: `Enrollment` (concessão manual, suspensão, cancelamento, reativação), `LessonProgress`; regra de conclusão de aula (≥90% do vídeo ou marcação manual, monotônica); bloqueio de acesso a vídeo/curso sem matrícula ativa (exceto `FREE_PREVIEW`); cálculo de progresso por módulo e curso; área mínima do aluno no web.
 
 Critérios de aceite:
-- Aluno sem matrícula ativa recebe 403 ao tentar acessar aula/vídeo restrito.
-- Aluno não consegue alterar progresso de outro aluno (mesmo manipulando IDs na requisição).
-- Progresso do curso reflete corretamente a proporção de aulas concluídas.
-- Regra de conclusão de aula confirmada e coberta por teste automatizado.
+- [x] Aluno sem matrícula ativa recebe 403 ao tentar acessar aula/vídeo restrito.
+- [x] Aluno não consegue alterar progresso de outro aluno (checagem de posse no `ProgressService`).
+- [x] Progresso do curso reflete a proporção de aulas publicadas concluídas (`GET .../progress/summary`).
+- [x] Regra de conclusão confirmada (90% OU manual) e coberta por testes unitários.
 
 ## Fase 5 — Exercícios Manuais, Tentativas e Correção
 

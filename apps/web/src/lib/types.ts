@@ -170,6 +170,73 @@ export interface CourseModule {
   lessons: Lesson[];
 }
 
+export type EnrollmentStatus = "ACTIVE" | "SUSPENDED" | "CANCELLED" | "EXPIRED";
+export type LessonProgressStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+
+export interface Enrollment {
+  id: string;
+  studentUserId: string;
+  studentName: string;
+  studentEmail: string;
+  courseId: string;
+  courseTitle: string;
+  status: EnrollmentStatus;
+  startedAt: string;
+  expiresAt: string | null;
+  grantedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LessonProgressItem {
+  lessonId: string;
+  title: string;
+  orderIndex: number;
+  durationSeconds: number | null;
+  accessType: LessonAccessType;
+  progressStatus: LessonProgressStatus;
+  lastPositionSeconds: number;
+  currentVideoAssetId: string | null;
+}
+
+export interface ModuleProgressSummary {
+  moduleId: string;
+  moduleTitle: string;
+  orderIndex: number;
+  totalPublishedLessons: number;
+  completedLessons: number;
+  completionPercent: number;
+  lessons: LessonProgressItem[];
+}
+
+export interface ProgressSummary {
+  enrollmentId: string;
+  courseId: string;
+  courseTitle: string;
+  enrollmentStatus: EnrollmentStatus;
+  totalPublishedLessons: number;
+  completedLessons: number;
+  courseCompletionPercent: number;
+  modules: ModuleProgressSummary[];
+}
+
+export interface StreamUrl {
+  url: string;
+  expiresAt: number;
+  ttlSeconds: number;
+}
+
+export interface LessonProgress {
+  id: string;
+  enrollmentId: string;
+  lessonId: string;
+  status: LessonProgressStatus;
+  lastPositionSeconds: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  updatedAt: string;
+}
+
 export interface ApiErrorBody {
   type: string;
   title: string;

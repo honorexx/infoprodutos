@@ -15,7 +15,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api-client";
-import type { CourseSummary, PageResponse } from "@/lib/types";
+import type { CourseSummary, Enrollment, PageResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -237,18 +237,43 @@ function EmptyRow({ text }: { text: string }) {
 }
 
 function StudentOverview() {
+  const [count, setCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    apiFetch<Enrollment[]>("/enrollments/me")
+      .then((list) => {
+        if (active) setCount(list.filter((e) => e.status === "ACTIVE").length);
+      })
+      .catch(() => {
+        if (active) setCount(0);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
-    <div className="flex flex-col items-start gap-4 rounded-lg border border-dashed border-border/70 p-8">
+    <div className="flex flex-col items-start gap-4 rounded-lg border border-border/70 bg-surface-elevated p-8">
       <span className="flex size-10 items-center justify-center rounded-md bg-primary-soft text-primary-soft-foreground">
         <GraduationCap className="size-5" />
       </span>
       <div className="flex flex-col gap-1">
-        <h2 className="font-serif text-lg font-medium tracking-tight">Área do aluno chega na próxima fase</h2>
+        <h2 className="font-serif text-lg font-medium tracking-tight">Seus cursos</h2>
         <p className="max-w-md text-sm text-muted-foreground">
-          Matrícula, progresso e player fazem parte da Fase 4. Por enquanto você não tem cursos
-          matriculados.
+          {count === null
+            ? "Carregando matrículas…"
+            : count === 0
+              ? "Você ainda não tem matrículas ativas."
+              : `Você tem ${count} matrícula${count === 1 ? "" : "s"} ativa${count === 1 ? "" : "s"}.`}
         </p>
       </div>
+      <Button asChild>
+        <Link href="/my-courses">
+          Ir para meus cursos
+          <ArrowRight className="size-4" />
+        </Link>
+      </Button>
     </div>
   );
 }

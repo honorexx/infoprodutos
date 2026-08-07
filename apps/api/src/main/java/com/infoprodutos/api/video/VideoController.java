@@ -56,17 +56,19 @@ public class VideoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','INSTRUCTOR')")
+    @PreAuthorize("isAuthenticated()")
     public VideoAssetResponse get(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails principal) {
         return videoService.get(id, principal);
     }
 
     @GetMapping("/{id}/stream-url")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','INSTRUCTOR')")
+    @PreAuthorize("isAuthenticated()")
     public StreamUrlResponse streamUrl(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails principal) {
-        return videoService.streamUrl(id, principal);
+            @PathVariable UUID id,
+            @AuthenticationPrincipal CustomUserDetails principal,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return videoService.streamUrl(id, principal, request);
     }
 
     /**

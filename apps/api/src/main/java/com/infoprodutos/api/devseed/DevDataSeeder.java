@@ -14,6 +14,8 @@ import com.infoprodutos.api.course.repository.CourseInstructorRepository;
 import com.infoprodutos.api.course.repository.CourseRepository;
 import com.infoprodutos.api.course.repository.LessonRepository;
 import com.infoprodutos.api.course.repository.ModuleRepository;
+import com.infoprodutos.api.enrollment.domain.Enrollment;
+import com.infoprodutos.api.enrollment.repository.EnrollmentRepository;
 import com.infoprodutos.api.user.domain.Role;
 import com.infoprodutos.api.user.domain.RoleCode;
 import com.infoprodutos.api.user.domain.User;
@@ -56,6 +58,7 @@ public class DevDataSeeder implements CommandLineRunner {
     private final CourseInstructorRepository courseInstructorRepository;
     private final ModuleRepository moduleRepository;
     private final LessonRepository lessonRepository;
+    private final EnrollmentRepository enrollmentRepository;
 
     @Override
     @Transactional
@@ -69,6 +72,7 @@ public class DevDataSeeder implements CommandLineRunner {
         seedUser("INSTRUCTOR", "Professor (dev)", devSeedProperties.getInstructorEmail(), devSeedProperties.getInstructorPassword(), RoleCode.INSTRUCTOR);
         seedUser("STUDENT", "Aluno (dev)", devSeedProperties.getStudentEmail(), devSeedProperties.getStudentPassword(), RoleCode.STUDENT);
         seedSampleCourses();
+        seedStudentEnrollment();
     }
 
     /** Curso(s) de exemplo para o professor dev poder ver o construtor curricular funcionando. */
@@ -115,6 +119,34 @@ public class DevDataSeeder implements CommandLineRunner {
         courseInstructorRepository.save(new CourseInstructor(draftCourse, instructor, true));
 
         log.info("Cursos de exemplo criados para o professor dev ({}).", instructorEmail);
+    }
+
+    /** Matricula o aluno seed no curso publicado de marketing (idempotente). */
+    private void seedStudentEnrollment() {
+        String studentEmail = devSeedProperties.getStudentEmail();
+        String instructorEmail = devSeedProperties.getInstructorEmail();
+        if (studentEmail == null || studentEmail.isBlank()) {
+            return;
+        }
+        User student = userRepository.findActiveByEmailIgnoreCase(studentEmail).orElse(null);
+        if (student == null) {
+            return;
+        }
+        Course published = courseRepository.findAll().stream()
+                .filter(c -> c.getDeletedAt() == null && c.getStatus() == CourseStatus.PUBLISHED)
+                .findFirst()
+                .orElse(null);
+        if (published == null) {
+            return;
+        }
+        if (enrollmentRepository.findByStudentIdAndCourseId(student.getId(), published.getId()).isPresent()) {
+            return;
+        }
+        User granter = instructorEmail != null
+                ? userRepository.findActiveByEmailIgnoreCase(instructorEmail).orElse(student)
+                : student;
+        enrollmentRepository.save(new Enrollment(student, published, granter.getId()));
+        log.info("Matrícula seed: {} -> curso '{}'", studentEmail, published.getTitle());
     }
 
     private void seedUser(String label, String name, String email, String rawPassword, String roleCode) {

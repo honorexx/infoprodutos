@@ -27,7 +27,7 @@ public class MaterialController {
     private final MaterialService materialService;
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','INSTRUCTOR')")
+    @PreAuthorize("isAuthenticated()")
     public List<MaterialResponse> list(
             @PathVariable UUID lessonId, @AuthenticationPrincipal CustomUserDetails principal) {
         return materialService.list(lessonId, principal);

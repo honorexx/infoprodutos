@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Infoprodutos (API + Web)" type="CompoundRunConfigurationType">
+    <toRun name="ApiApplication (dev)" type="SpringBootApplicationConfigurationType" />
+    <toRun name="Web (Next.js)" type="ShConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>

@@ -202,7 +202,7 @@ public class CourseService {
         throw new ForbiddenOperationException("Você não tem permissão para visualizar este curso.");
     }
 
-    Course findActiveOrThrow(UUID id) {
+    public Course findActiveOrThrow(UUID id) {
         return courseRepository.findActiveById(id).orElseThrow(() -> new NotFoundException("Curso não encontrado."));
     }
 

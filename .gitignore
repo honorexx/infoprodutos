@@ -1,5 +1,7 @@
 # IDEs
-.idea/
+.idea/*
+!.idea/runConfigurations/
+!.idea/runConfigurations/**
 .vscode/
 *.iml
 
@@ -12,6 +14,7 @@ Thumbs.db
 
 # Storage local de vídeos/materiais (dev)
 apps/api/data/
+data/
 
 # --- Backend (apps/api) ---
 apps/api/target/
