@@ -12,4 +12,6 @@ public class AiProperties {
     private int maxAttempts = 3;
     private int stuckTimeoutMinutes = 15;
     private int defaultQuestionCount = 5;
+    /** Intervalo do scheduler de jobs travados (ms). */
+    private long stuckCheckIntervalMs = 60_000L;
 }

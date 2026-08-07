@@ -75,6 +75,13 @@ public class AiJobController {
                 .body(aiJobService.regenerate(id, key, principal));
     }
 
+    @PostMapping("/api/v1/ai-jobs/{id}/resume")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','INSTRUCTOR')")
+    public ResponseEntity<AiJobResponse> resume(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails principal) {
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(aiJobService.resume(id, principal));
+    }
+
     @GetMapping("/api/v1/ai-jobs/{id}/reviews")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','INSTRUCTOR')")
     public List<AiReviewResponse> reviews(

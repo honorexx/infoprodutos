@@ -60,15 +60,15 @@ Critérios de aceite:
 
 Detalhes completos de implementação, arquivos alterados e limitações: ver `DECISIONS.md` §"Decisões reais da Fase 1" e o resumo final entregue ao final da Fase 1.
 
-## Fase 2 — Cursos, Módulos e Aulas (estrutura curricular)
+## Fase 2 — Cursos, Módulos e Aulas (estrutura curricular) ✅ CONCLUÍDA (2026-08-06)
 
 Escopo: CRUD de `Course`, `CourseInstructor`, `Module`, `Lesson` (sem vídeo ainda); rascunho/publicação/arquivamento; reordenação de módulos e aulas; painel administrativo com listagem/edição de curso e construtor curricular (sem player de vídeo funcional ainda).
 
 Critérios de aceite:
-- Um INSTRUCTOR só edita seus próprios cursos; tentativa de editar curso de outro professor retorna 403.
-- Reordenar módulos/aulas persiste corretamente e é idempotente (chamar duas vezes com a mesma ordem não corrompe dados).
-- Curso em `DRAFT` não aparece na listagem pública/do aluno.
-- Testes de CRUD e de autorização por papel/posse.
+- [x] Um INSTRUCTOR só edita seus próprios cursos; tentativa de editar curso de outro professor retorna 403.
+- [x] Reordenar módulos/aulas persiste corretamente e é idempotente (chamar duas vezes com a mesma ordem não corrompe dados).
+- [x] Curso em `DRAFT` não aparece na listagem pública/do aluno.
+- [x] Testes de CRUD e de autorização por papel/posse.
 
 ## Fase 3 — Vídeos, Materiais e Pipeline de IA (fluxo vertical) ✅ CONCLUÍDA (2026-08-06)
 
@@ -104,16 +104,18 @@ Critérios de aceite:
 - [x] Nova tentativa respeita `max_attempts` do curso/quiz.
 - [x] Pontuação calculada corretamente e coberta por testes com casos de borda (0%, 100%, parcial).
 
-## Fase 6 — Pipeline de IA (transcrição e geração)
+## Fase 6 — Pipeline de IA (transcrição e geração) ✅ CONCLUÍDA (2026-08-07)
 
-Escopo: interfaces `TranscriptionProvider`, `QuestionGenerationProvider`, `AiContentValidator`, `AiUsageTracker`; `AiGenerationJob` com máquina de estados completa; processamento assíncrono; validação estrutural completa (`AI_PIPELINE.md` §7); idempotência.
+> Base entregue na Fase 3 (fluxo vertical + mocks). Esta fase fecha recuperação de jobs travados, retomada sem duplicação, testes de idempotência/aprovação e documentação. Painel de revisão humana já existe (antecipado da Fase 7); `AI_GENERATED` só chega a `PUBLISHED` após aprovação.
+
+Escopo: interfaces `TranscriptionProvider`, `QuestionGenerationProvider`, `AiContentValidator`, `AiUsageTracker`; `AiGenerationJob` com máquina de estados completa; processamento assíncrono; validação estrutural completa (`AI_PIPELINE.md` §7); idempotência; reclaim com `FOR UPDATE SKIP LOCKED`.
 
 Critérios de aceite:
-- Solicitar geração não bloqueia a requisição HTTP (resposta imediata com `jobId`).
-- Repetir a mesma `idempotencyKey` não cria job/questões duplicadas.
-- Job falho é retomável/reprocessável sem duplicar dados já persistidos.
-- Questão com evidência incompatível com a transcrição é rejeitada pela validação (teste dedicado).
-- Nenhuma questão gerada por IA chega a `status = PUBLISHED` nesta fase (painel de revisão ainda não existe — permanecem em `DRAFT`/`AWAITING_REVIEW`).
+- [x] Solicitar geração não bloqueia a requisição HTTP (resposta imediata com `jobId`, HTTP 202).
+- [x] Repetir a mesma `idempotencyKey` não cria job/questões duplicadas (lookup + UNIQUE; teste unitário).
+- [x] Job falho é retomável (`POST /ai-jobs/{id}/resume`) sem duplicar questões já persistidas; stuck recovery via scheduler.
+- [x] Questão com evidência incompatível com a transcrição é rejeitada pela validação (`StructuralAiContentValidatorTest`).
+- [x] Questão `AI_GENERATED` não publica sem `approved_by_user_id` (teste + guard no `QuestionReviewService`).
 
 ## Fase 7 — Revisão Humana de Questões de IA
 

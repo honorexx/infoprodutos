@@ -19,6 +19,7 @@ import com.infoprodutos.api.ai.provider.dto.ProviderDtos.TranscriptSegmentDto;
 import com.infoprodutos.api.ai.provider.dto.ProviderDtos.TranscriptionResult;
 import com.infoprodutos.api.ai.provider.dto.ProviderDtos.UsageMetrics;
 import com.infoprodutos.api.ai.provider.dto.ProviderDtos.ValidationResult;
+import com.infoprodutos.api.ai.config.AiProperties;
 import com.infoprodutos.api.ai.provider.dto.ProviderDtos.VideoAssetRef;
 import com.infoprodutos.api.ai.repository.AiGeneratedQuestionReviewRepository;
 import com.infoprodutos.api.ai.repository.AiGenerationJobRepository;
@@ -69,6 +70,7 @@ public class AiJobWorker {
     private final AiContentValidator contentValidator;
     private final AiUsageTracker usageTracker;
     private final TransactionTemplate transactionTemplate;
+    private final AiProperties aiProperties;
 
     @Async("aiExecutor")
     public void processAsync(UUID jobId) {
@@ -85,12 +87,30 @@ public class AiJobWorker {
         if (job == null) {
             return;
         }
-        if (job.getStatus() == AiJobStatus.CANCELLED || job.getStatus() == AiJobStatus.COMPLETED) {
+        // Só processa PENDING (criação, resume ou reclaim). Evita reentrada em FAILED/AWAITING_REVIEW.
+        if (job.getStatus() != AiJobStatus.PENDING) {
+            return;
+        }
+        if (job.getAttemptCount() >= aiProperties.getMaxAttempts()) {
+            failJob(jobId, "Limite de tentativas do job de IA atingido.");
+            return;
+        }
+
+        // Retomada sem duplicar: se já há questões DRAFT deste job, volta para revisão.
+        long existingQuestions = questionRepository.countByAiGenerationJobIdAndDeletedAtIsNull(jobId);
+        if (existingQuestions > 0) {
+            job.setStatus(AiJobStatus.AWAITING_REVIEW);
+            job.setErrorMessage(null);
+            job.setCompletedAt(null);
+            jobRepository.save(job);
+            log.info("AI job {} resumed with {} existing questions — awaiting review", jobId, existingQuestions);
             return;
         }
 
         job.setStartedAt(Instant.now());
         job.setAttemptCount(job.getAttemptCount() + 1);
+        job.setErrorMessage(null);
+        job.setCompletedAt(null);
         jobRepository.save(job);
 
         Lesson lesson = lessonRepository

@@ -52,6 +52,7 @@ app:
     provider: ${AI_PROVIDER:mock}
     max-attempts: ${AI_JOB_MAX_ATTEMPTS:3}
     stuck-timeout-minutes: ${AI_JOB_STUCK_TIMEOUT_MINUTES:15}
+    stuck-check-interval-ms: ${AI_JOB_STUCK_CHECK_INTERVAL_MS:60000}
     default-question-count: ${AI_DEFAULT_QUESTION_COUNT:5}
   dev-seed:
     enabled: ${DEV_SEED_ENABLED:false}

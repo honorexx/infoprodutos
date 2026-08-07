@@ -179,6 +179,7 @@ Estrutura análoga a módulos: `GET`, `POST`, `PUT`, `DELETE`, `/reorder`, `/pub
 | GET | `/ai-jobs/{id}` | SUPER_ADMIN, INSTRUCTOR dono | Status do job |
 | GET | `/ai-jobs` | SUPER_ADMIN (todos), INSTRUCTOR (dos seus cursos) | Lista/monitoramento (tela "Processamentos de IA") |
 | POST | `/ai-jobs/{id}/cancel` | SUPER_ADMIN, INSTRUCTOR dono | Cancela job pendente |
+| POST | `/ai-jobs/{id}/resume` | SUPER_ADMIN, INSTRUCTOR dono | Retoma job `FAILED` sem nova `idempotencyKey` (sem duplicar questões já geradas) |
 | POST | `/ai-jobs/{id}/regenerate` | SUPER_ADMIN, INSTRUCTOR dono | Solicita nova geração (novo job, mantendo idempotência) |
 | GET | `/ai-jobs/{id}/reviews` | idem | Lista questões geradas pendentes de revisão + evidência |
 

@@ -92,16 +92,17 @@ A implementação da Fase 1 ("Fundação": monorepo, auth, RBAC — nomeada assi
 | — | Charset das respostas de erro de segurança | `RestAuthenticationEntryPoint` e `RestAccessDeniedHandler` fixam `response.setCharacterEncoding("UTF-8")` explicitamente antes de escrever o corpo JSON — o padrão do Tomcat (`ISO-8859-1`) corrompia acentuação em mensagens de erro em português |
 | — | Ambiente de execução de testes de integração/Docker | O sandbox usado durante a implementação **não tem Docker disponível** (nem `dockerd`, nem `docker compose`). Testes de integração com Testcontainers (`AuthControllerIT`, `AuthorizationIT`) foram escritos e compilam, mas não foram executados neste ambiente — apenas os testes unitários (`mvn test`, 20 testes) rodaram de fato. `docker-compose.yml`/`Dockerfile`s foram escritos seguindo boas práticas (multi-stage build, usuário não-root, saída `standalone` do Next.js) mas não puderam ser buildados/executados aqui. Recomenda-se rodar `mvn verify` e `docker compose up --build` em um ambiente com Docker antes do deploy |
 
-## Decisões do sistema visual (Design System — implementação, 2026-08-06)
+## Decisões do sistema visual (Design System)
 
-Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de negócio, contratos de API, banco de dados ou funcionalidades. Detalhamento completo em `docs/DESIGN_SYSTEM.md`.
+Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de negócio, contratos de API, banco de dados ou funcionalidades. Fonte da verdade: `docs/DESIGN_SYSTEM.md` — **Official Brand Color System — v1**.
 
 | # | Item | Resolução |
 |---|---|---|
-| — | Combinação tipográfica | **DECIDIDO:** Fraunces (heading, serifado editorial) + Public Sans (interface) + Geist Mono (código), via `next/font/google`, para evitar a combinação genérica "Inter em tudo" |
-| — | Cor primária vs. cor de destaque | **DECIDIDO:** primária = tinta quase-preta (confiante, editorial); verde sofisticado reservado como `accent`, usado com moderação (links, estado ativo, foco, tags) — não pinta grandes áreas |
-| — | Itens de menu ainda não implementados (Certificados, Configurações) | **DECIDIDO:** aparecem na navegação lateral com selo "Em breve". **Processamentos de IA** (`/ai`) e **Meus cursos** (`/my-courses`, alunos) são rotas reais |
-| — | Métricas do dashboard sem dado real disponível ainda (alunos ativos, taxa de conclusão) | **DECIDIDO:** placeholders explícitos "Em breve nas próximas fases", nunca com número inventado. Métricas com dado real (`/courses`, `/users`) são calculadas em runtime. O dashboard demo com mocks de alunos/IA foi removido |
+| — | Combinação tipográfica | **DECIDIDO:** Fraunces (heading) + Public Sans (interface) + Geist Mono (código), via `next/font/google` |
+| — | Identidade cromática oficial (v1, 2026-08-07) | **INEGOCIÁVEL:** navy `#040A16` + gold champagne `#BA9364`. Distribuição ~80% navy / 15% texto / 5% dourado. HEX da paleta não podem ser reinterpretados sem nova decisão explícita |
+| — | Tema claro legado (off-white + verde) | **SUBSTITUÍDO** pela v1 navy+gold; app é dark-first único |
+| — | Itens de menu ainda não implementados (Certificados, Configurações) | **DECIDIDO:** selo "Em breve". **Processamentos de IA** e **Meus cursos** são rotas reais |
+| — | Métricas do dashboard sem dado real | **DECIDIDO:** placeholders explícitos; nunca número inventado |
 
 ## Decisões reais da Fase 3 (vídeos + IA — implementação, 2026-08-06)
 
@@ -138,6 +139,16 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | — | Gate | **DECIDIDO:** take/attempt exige matrícula `ACTIVE` (mesmo padrão da Fase 4) |
 | — | IA | **FORA DE ESCOPO nesta fase:** criação manual apenas; pipeline mock permanece para jobs existentes |
 
+## Decisões reais da Fase 6 (pipeline de IA — fechamento, 2026-08-07)
+
+| # | Item | Resolução |
+|---|---|---|
+| — | Escopo vs. Fase 3 | **DECIDIDO:** Fase 3 já entregou o fluxo vertical + mocks + revisão; Fase 6 fecha reclaim, resume e testes de aceite |
+| — | Jobs travados | **DECIDIDO:** scheduler periódico + `FOR UPDATE SKIP LOCKED`; timeout `app.ai.stuck-timeout-minutes` (15); `max-attempts` (3) |
+| — | Retomada | **DECIDIDO:** `POST /ai-jobs/{id}/resume` para `FAILED`; se já há questões do job → `AWAITING_REVIEW` sem regenerar |
+| — | Provedores reais | **MANTIDO mock** — sem gasto em LLM nesta fase |
+| — | Publicação AI | **CONFIRMADO:** exige `APPROVED` + `approved_by_user_id` (guard + teste) |
+
 ## Limitações conhecidas do MVP (aceitas conscientemente)
 
 - Sem pagamento/assinatura — acesso é 100% manual (`Enrollment` criado por admin/instrutor).
@@ -157,3 +168,5 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | 2026-08-06 | Adicionada seção "Decisões reais da Fase 3" (vídeos, storage local, pipeline de IA mock, revisão humana, reset do dashboard demo) |
 | 2026-08-07 | Adicionada seção "Decisões reais da Fase 4" (matrículas, progresso 90%/manual, gate de vídeo, área do aluno); pergunta #6 fechada |
 | 2026-08-07 | Adicionada seção "Decisões reais da Fase 5" (quiz manual, tentativas, score, max_attempts); pergunta #11 fechada |
+| 2026-08-07 | Official Brand Color System — v1 (navy `#040A16` + gold `#BA9364`); `DESIGN_SYSTEM.md` reescrito; paleta anterior off-white/verde aposentada |
+| 2026-08-07 | Fase 6 fechada (resume, stuck recovery SKIP LOCKED, testes idempotência/aprovação); Fase 2 marcada concluída no ROADMAP |

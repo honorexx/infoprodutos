@@ -184,6 +184,40 @@ public class AiJobService {
         return create(previous.getLessonId(), req, principal);
     }
 
+    /**
+     * Retoma job {@code FAILED} sem criar novo job/idempotency key.
+     * Se já existirem questões do job, o worker só reabre revisão (sem duplicar).
+     */
+    @Transactional
+    public AiJobResponse resume(UUID jobId, CustomUserDetails principal) {
+        AiGenerationJob job = findOrThrow(jobId);
+        requireJobAccess(job, principal);
+        if (job.getStatus() != AiJobStatus.FAILED) {
+            throw new BadRequestException("Somente jobs com status FAILED podem ser retomados.");
+        }
+        if (job.getAttemptCount() >= aiProperties.getMaxAttempts()) {
+            throw new BadRequestException("Limite de tentativas do job de IA atingido.");
+        }
+        job.setStatus(AiJobStatus.PENDING);
+        job.setErrorMessage(null);
+        job.setCompletedAt(null);
+        jobRepository.save(job);
+        auditService.record(principal.getId(), "AI_JOB_RESUMED", "AiGenerationJob", jobId, null);
+
+        UUID id = job.getId();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    aiJobWorker.processAsync(id);
+                }
+            });
+        } else {
+            aiJobWorker.processAsync(id);
+        }
+        return AiJobResponse.from(job);
+    }
+
     AiGenerationJob findOrThrow(UUID id) {
         return jobRepository.findById(id).orElseThrow(() -> new NotFoundException("Job de IA não encontrado."));
     }
