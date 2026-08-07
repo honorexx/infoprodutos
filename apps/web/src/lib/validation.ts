@@ -31,10 +31,17 @@ const optionalNonNegativeNumberString = z
     message: "Informe um número válido e não negativo.",
   });
 
+const requiredWorkloadHours = z
+  .string()
+  .min(1, "Informe a carga horária.")
+  .refine((value) => !Number.isNaN(Number(value)) && Number(value) >= 0.5, {
+    message: "Carga horária mínima: 0,5h.",
+  });
+
 export const courseFormSchema = z.object({
   title: z.string().min(1, "Informe o título.").max(200, "Título muito longo."),
   description: z.string().max(4000, "Descrição muito longa.").optional().or(z.literal("")),
-  workloadHours: optionalNonNegativeNumberString,
+  workloadHours: requiredWorkloadHours,
 });
 
 export type CourseFormInput = z.infer<typeof courseFormSchema>;

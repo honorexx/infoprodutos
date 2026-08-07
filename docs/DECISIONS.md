@@ -101,7 +101,7 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | — | Combinação tipográfica | **DECIDIDO:** Fraunces (heading) + Public Sans (interface) + Geist Mono (código), via `next/font/google` |
 | — | Identidade cromática oficial (v1, 2026-08-07) | **INEGOCIÁVEL:** navy `#040A16` + gold champagne `#BA9364`. Distribuição ~80% navy / 15% texto / 5% dourado. HEX da paleta não podem ser reinterpretados sem nova decisão explícita |
 | — | Tema claro legado (off-white + verde) | **SUBSTITUÍDO** pela v1 navy+gold; app é dark-first único |
-| — | Itens de menu ainda não implementados (Certificados, Configurações) | **DECIDIDO:** selo "Em breve". **Processamentos de IA** e **Meus cursos** são rotas reais |
+| — | Itens de menu ainda não implementados | **ATUALIZADO:** Configurações permanece "Em breve". **Meus certificados** é rota real (STUDENT) |
 | — | Métricas do dashboard sem dado real | **DECIDIDO:** placeholders explícitos; nunca número inventado |
 
 ## Decisões reais da Fase 3 (vídeos + IA — implementação, 2026-08-06)
@@ -148,6 +148,17 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | — | Retomada | **DECIDIDO:** `POST /ai-jobs/{id}/resume` para `FAILED`; se já há questões do job → `AWAITING_REVIEW` sem regenerar |
 | — | Provedores reais | **MANTIDO mock** — sem gasto em LLM nesta fase |
 | — | Publicação AI | **CONFIRMADO:** exige `APPROVED` + `approved_by_user_id` (guard + teste) |
+
+## Decisões reais da Fase 8 (certificados — implementação, 2026-08-07)
+
+| # | Item | Resolução |
+|---|---|---|
+| Perguntas #7/#8 | Quiz e nota para certificado | **CONFIRMADO:** quizzes de módulo **publicados** são obrigatórios; nota = melhor tentativa `GRADED` ≥ `passingScore` (quiz ou curso) |
+| — | Fluxo do aluno | **DECIDIDO:** (1) concluir todas as aulas → (2) botão **Concluir curso** → (3) **Emitir certificado** → (4) aba **Meus certificados** |
+| — | Natureza do certificado | **DECIDIDO: institucional** — sem nome do instrutor; assinaturas de Coordenador (Rafael Kienen) e CVO (Pedro Honorio); PDF alinhado ao Design System + `docs/preview.pdf` |
+| — | Carga horária | **DECIDIDO:** obrigatória no create/update (≥ 0,5h); snapshot no certificado |
+| — | Validação pública | **DECIDIDO:** QR → `{FRONTEND}/certificados/{code}`; só dados públicos; não dá acesso ao curso |
+| — | Idempotência | **DECIDIDO:** `UNIQUE(enrollment_id)`; reemissão devolve o existente |
 
 ## Limitações conhecidas do MVP (aceitas conscientemente)
 

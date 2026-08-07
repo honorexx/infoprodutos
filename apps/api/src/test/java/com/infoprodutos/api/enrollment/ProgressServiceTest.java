@@ -57,6 +57,12 @@ class ProgressServiceTest {
     @Mock
     private CourseAccessGuard courseAccessGuard;
 
+    @Mock
+    private com.infoprodutos.api.certificate.CertificateEligibilityService certificateEligibilityService;
+
+    @Mock
+    private com.infoprodutos.api.certificate.repository.CertificateRepository certificateRepository;
+
     private ProgressService progressService;
 
     private User student;
@@ -73,7 +79,9 @@ class ProgressServiceTest {
                 lessonService,
                 lessonRepository,
                 moduleRepository,
-                courseAccessGuard);
+                courseAccessGuard,
+                certificateEligibilityService,
+                certificateRepository);
 
         student = userWithRole(RoleCode.STUDENT, "aluno@test.local");
         otherStudent = userWithRole(RoleCode.STUDENT, "outro@test.local");

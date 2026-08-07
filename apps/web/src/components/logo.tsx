@@ -1,48 +1,110 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
+/** Assets — monograma PKS (sem Consultoria). */
+const LOGO_GOLD = "/brand/pks-logo-transparent.png";
+const LOGO_INK = "/brand/pks-logo-ink.png";
+const MARK_GOLD = "/brand/pks-logo-mark.png";
+const MARK_INK = "/brand/pks-logo-mark-ink.png";
+const MONO_INK = "/brand/pks-monogram-ink.png";
+const MONO_GOLD = "/brand/pks-monogram.png";
+
 /**
- * Marca "Infoprodutos": três hastes ascendentes (progresso).
- * Destaque dourado (`fill-primary`) na haste mais alta — Official Brand Color System v1.
+ * Marca compacta (quadrado) — mobile header / collapsed.
+ * Preferir `SidebarBrand` na sidebar expandida (mais nítida).
  */
-export function LogoMark({ className }: { className?: string }) {
+export function LogoMark({
+  className,
+  variant = "gold",
+}: {
+  className?: string;
+  variant?: "gold" | "ink";
+}) {
+  const src = variant === "ink" ? MARK_INK : MARK_GOLD;
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-      className={cn("size-4", className)}
-    >
-      <rect x="3" y="13" width="4" height="8" rx="1" fill="currentColor" opacity="0.45" />
-      <rect x="10" y="8" width="4" height="13" rx="1" fill="currentColor" opacity="0.75" />
-      <rect x="17" y="3" width="4" height="18" rx="1" className="fill-primary" />
-    </svg>
+    <span className={cn("relative inline-flex size-11 shrink-0 overflow-hidden", className)}>
+      <Image
+        src={src}
+        alt=""
+        fill
+        sizes="88px"
+        quality={100}
+        priority
+        unoptimized
+        className="object-contain"
+      />
+    </span>
+  );
+}
+
+/**
+ * Monograma PKS horizontal nítido — sidebar dourada (alinhado à esquerda).
+ */
+export function SidebarBrand({
+  className,
+  collapsed = false,
+}: {
+  className?: string;
+  collapsed?: boolean;
+}) {
+  if (collapsed) {
+    return <LogoMark variant="ink" className={cn("size-10", className)} />;
+  }
+
+  return (
+    <span className={cn("inline-flex items-center justify-center", className)}>
+      <Image
+        src={MONO_INK}
+        alt="PKS"
+        width={160}
+        height={81}
+        sizes="200px"
+        quality={100}
+        priority
+        unoptimized
+        className="h-10 w-auto max-w-[11rem] object-contain object-center"
+      />
+    </span>
   );
 }
 
 export function Logo({
   className,
-  markClassName,
-  showWordmark = true,
+  priority = false,
+  size = "md",
+  variant = "gold",
 }: {
   className?: string;
   markClassName?: string;
   showWordmark?: boolean;
+  priority?: boolean;
+  size?: "sm" | "md" | "lg";
+  variant?: "gold" | "ink";
 }) {
+  const dims = {
+    sm: { width: 168, height: 114, className: "h-12 w-auto" },
+    md: { width: 200, height: 136, className: "h-14 w-auto" },
+    lg: { width: 240, height: 163, className: "h-16 w-auto sm:h-[4.5rem]" },
+  }[size];
+
+  const src = variant === "ink" ? LOGO_INK : LOGO_GOLD;
+
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)}>
-      <span
-        className={cn(
-          "flex size-8 shrink-0 items-center justify-center rounded-md bg-navy-850 text-foreground",
-          markClassName,
-        )}
-      >
-        <LogoMark className="size-4" />
-      </span>
-      {showWordmark && (
-        <span className="font-heading text-[1.05rem] leading-none font-medium tracking-tight">
-          Infoprodutos
-        </span>
-      )}
+    <span className={cn("inline-flex items-center", className)}>
+      <Image
+        src={src}
+        alt="PKS Consultoria"
+        width={dims.width}
+        height={dims.height}
+        sizes={`${dims.width * 2}px`}
+        quality={100}
+        priority={priority}
+        unoptimized
+        className={cn("object-contain", dims.className)}
+      />
     </span>
   );
 }
+
+/** @internal re-export paths if needed */
+export const brandAssets = { MONO_GOLD, MONO_INK };

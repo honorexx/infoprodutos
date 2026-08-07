@@ -13,6 +13,7 @@ public record EnrollmentResponse(
         String status,
         Instant startedAt,
         Instant expiresAt,
+        Instant completedAt,
         String grantedByUserId,
         Instant createdAt,
         Instant updatedAt) {
@@ -28,6 +29,7 @@ public record EnrollmentResponse(
                 e.getStatus().name(),
                 e.getStartedAt(),
                 e.getExpiresAt(),
+                e.getCompletedAt(),
                 e.getGrantedByUserId() != null ? e.getGrantedByUserId().toString() : null,
                 e.getCreatedAt(),
                 e.getUpdatedAt());

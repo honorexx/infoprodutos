@@ -78,7 +78,7 @@ Somente título da aula, transcrição e instruções do professor são enviados
 
 ## 9. Validação pública de certificado
 
-- Endpoint público (`GET /public/certificates/validate/{validationCode}`) retorna **apenas**: nome do aluno, nome do curso, nome do professor, carga horária, data de emissão e status (válido/revogado).
+- Endpoint público (`GET /public/certificates/validate/{validationCode}`) retorna **apenas**: nome do aluno, nome do curso, carga horária, data de conclusão/emissão e status (válido/revogado). **Não** inclui nome do instrutor (certificado institucional).
 - Não retorna: e-mail, identificadores internos (UUID), dados de outras matrículas, progresso ou qualquer dado não estritamente necessário à validação.
 - `validation_code` é um código curto dedicado (não o UUID do certificado), reduzindo a chance de enumeração e evitando reaproveitar um identificador interno em contexto público.
 - **[DECISÃO]** Rate limiting leve neste endpoint também é recomendável para evitar varredura de códigos válidos por força bruta — **[PERGUNTA ABERTA]** definir limite exato.

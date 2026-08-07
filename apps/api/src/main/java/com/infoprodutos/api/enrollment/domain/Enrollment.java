@@ -45,6 +45,9 @@ public class Enrollment extends AuditableEntity {
     @Column(name = "granted_by_user_id")
     private UUID grantedByUserId;
 
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
     public Enrollment(User student, Course course, UUID grantedByUserId) {
         this.student = student;
         this.course = course;

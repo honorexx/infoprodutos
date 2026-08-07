@@ -2,6 +2,7 @@ package com.infoprodutos.api.quiz.repository;
 
 import com.infoprodutos.api.quiz.domain.QuizAttempt;
 import com.infoprodutos.api.quiz.domain.QuizAttemptStatus;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,4 +25,15 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, UUID> 
 
     @Query("select coalesce(max(a.attemptNumber), 0) from QuizAttempt a where a.enrollmentId = :enrollmentId and a.quizId = :quizId")
     int findMaxAttemptNumber(@Param("enrollmentId") UUID enrollmentId, @Param("quizId") UUID quizId);
+
+    @Query(
+            """
+            select max(a.score) from QuizAttempt a
+             where a.enrollmentId = :enrollmentId
+               and a.quizId = :quizId
+               and a.status = com.infoprodutos.api.quiz.domain.QuizAttemptStatus.GRADED
+               and a.score is not null
+            """)
+    BigDecimal findBestGradedScore(
+            @Param("enrollmentId") UUID enrollmentId, @Param("quizId") UUID quizId);
 }

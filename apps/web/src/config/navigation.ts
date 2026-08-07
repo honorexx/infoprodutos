@@ -24,6 +24,7 @@ export interface NavItem {
 export const primaryNavigation: NavItem[] = [
   { href: "/dashboard", label: "Visão geral", icon: LayoutDashboard },
   { href: "/my-courses", label: "Meus cursos", icon: GraduationCap, roles: ["STUDENT"] },
+  { href: "/my-certificates", label: "Meus certificados", icon: Award, roles: ["STUDENT"] },
   { href: "/courses", label: "Cursos", icon: BookOpen, roles: ["SUPER_ADMIN", "INSTRUCTOR"] },
   { href: "/admin/users", label: "Usuários", icon: Users, roles: ["SUPER_ADMIN"] },
 ];
@@ -31,7 +32,6 @@ export const primaryNavigation: NavItem[] = [
 /** Navegação de fases futuras do roadmap — visível, mas desabilitada. */
 export const upcomingNavigation: NavItem[] = [
   { href: "/ai", label: "Processamentos de IA", icon: Cpu, roles: ["SUPER_ADMIN", "INSTRUCTOR"] },
-  { href: "#", label: "Certificados", icon: Award, roles: ["SUPER_ADMIN", "INSTRUCTOR"], comingSoon: true },
   { href: "#", label: "Configurações", icon: Settings, comingSoon: true },
 ];
 

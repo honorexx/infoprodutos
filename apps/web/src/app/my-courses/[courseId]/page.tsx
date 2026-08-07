@@ -4,12 +4,20 @@ import { Suspense, use, useCallback, useEffect, useMemo, useRef, useState } from
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Circle, PlayCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Award,
+  CheckCircle2,
+  Circle,
+  PlayCircle,
+} from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { StudentModuleQuiz } from "@/components/courses/student-module-quiz";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import type {
+  Certificate,
   Enrollment,
   LessonProgress,
   LessonProgressItem,
@@ -21,6 +29,8 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+type FlatLesson = LessonProgressItem & { moduleId: string; moduleTitle: string };
+
 function StudentCourseContent({ courseId }: { courseId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -31,15 +41,22 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [issuing, setIssuing] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const heartbeatTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const initialLessonPicked = useRef(false);
 
   const load = useCallback(async () => {
     try {
       const mine = await apiFetch<Enrollment[]>("/enrollments/me");
       const match =
-        mine.find((e) => e.courseId === courseId && e.status === "ACTIVE" && (!enrollmentIdParam || e.id === enrollmentIdParam))
-        ?? mine.find((e) => e.courseId === courseId && e.status === "ACTIVE");
+        mine.find(
+          (e) =>
+            e.courseId === courseId &&
+            e.status === "ACTIVE" &&
+            (!enrollmentIdParam || e.id === enrollmentIdParam),
+        ) ?? mine.find((e) => e.courseId === courseId && e.status === "ACTIVE");
       if (!match) {
         toast.error("Você não tem matrícula ativa neste curso.");
         router.replace("/my-courses");
@@ -48,11 +65,14 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
       setEnrollment(match);
       const progress = await apiFetch<ProgressSummary>(`/enrollments/${match.id}/progress/summary`);
       setSummary(progress);
-      const firstIncomplete =
-        progress.modules.flatMap((m) => m.lessons).find((l) => l.progressStatus !== "COMPLETED")
-        ?? progress.modules.flatMap((m) => m.lessons)[0];
-      if (firstIncomplete) {
-        setSelectedLessonId(firstIncomplete.lessonId);
+      if (!initialLessonPicked.current) {
+        const firstIncomplete =
+          progress.modules.flatMap((m) => m.lessons).find((l) => l.progressStatus !== "COMPLETED") ??
+          progress.modules.flatMap((m) => m.lessons)[0];
+        if (firstIncomplete) {
+          setSelectedLessonId(firstIncomplete.lessonId);
+        }
+        initialLessonPicked.current = true;
       }
     } catch (error) {
       toast.error(
@@ -66,14 +86,28 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
     void load();
   }, [load]);
 
-  const selectedLesson: LessonProgressItem | null = useMemo(() => {
-    if (!summary || !selectedLessonId) return null;
-    for (const mod of summary.modules) {
-      const found = mod.lessons.find((l) => l.lessonId === selectedLessonId);
-      if (found) return found;
-    }
-    return null;
-  }, [summary, selectedLessonId]);
+  const flatLessons: FlatLesson[] = useMemo(() => {
+    if (!summary) return [];
+    return summary.modules.flatMap((mod) =>
+      mod.lessons.map((lesson) => ({
+        ...lesson,
+        moduleId: mod.moduleId,
+        moduleTitle: mod.moduleTitle,
+      })),
+    );
+  }, [summary]);
+
+  const selectedIndex = useMemo(
+    () => flatLessons.findIndex((l) => l.lessonId === selectedLessonId),
+    [flatLessons, selectedLessonId],
+  );
+
+  const selectedLesson = selectedIndex >= 0 ? flatLessons[selectedIndex] : null;
+  const previousLesson = selectedIndex > 0 ? flatLessons[selectedIndex - 1] : null;
+  const nextLesson =
+    selectedIndex >= 0 && selectedIndex < flatLessons.length - 1
+      ? flatLessons[selectedIndex + 1]
+      : null;
 
   const refreshSummary = useCallback(async () => {
     if (!enrollment) return;
@@ -81,6 +115,7 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
       `/enrollments/${enrollment.id}/progress/summary`,
     );
     setSummary(progress);
+    return progress;
   }, [enrollment]);
 
   useEffect(() => {
@@ -90,28 +125,29 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
     }
 
     let cancelled = false;
+    const lessonId = selectedLesson.lessonId;
+    const videoAssetId = selectedLesson.currentVideoAssetId;
 
     async function openLesson() {
-      if (!enrollment || !selectedLesson) return;
       setLoadingStream(true);
       setStreamUrl(null);
       try {
-        await apiFetch(`/enrollments/${enrollment.id}/progress/lessons/${selectedLesson.lessonId}/start`, {
+        await apiFetch(`/enrollments/${enrollment!.id}/progress/lessons/${lessonId}/start`, {
           method: "POST",
         });
-        if (selectedLesson.currentVideoAssetId) {
-          const stream = await apiFetch<StreamUrl>(
-            `/videos/${selectedLesson.currentVideoAssetId}/stream-url`,
-          );
+        if (videoAssetId) {
+          const stream = await apiFetch<StreamUrl>(`/videos/${videoAssetId}/stream-url`);
           if (!cancelled) setStreamUrl(stream.url);
         }
-        await refreshSummary();
+        if (!cancelled) await refreshSummary();
       } catch (error) {
-        toast.error(
-          error instanceof ApiError
-            ? (error.body?.detail ?? error.message)
-            : "Não foi possível abrir a aula.",
-        );
+        if (!cancelled) {
+          toast.error(
+            error instanceof ApiError
+              ? (error.body?.detail ?? error.message)
+              : "Não foi possível abrir a aula.",
+          );
+        }
       } finally {
         if (!cancelled) setLoadingStream(false);
       }
@@ -123,7 +159,6 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
     };
   }, [enrollment, selectedLesson?.lessonId, selectedLesson?.currentVideoAssetId, refreshSummary]);
 
-  // Heartbeat a cada 10s enquanto o vídeo toca
   useEffect(() => {
     if (heartbeatTimer.current) {
       clearInterval(heartbeatTimer.current);
@@ -143,7 +178,7 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
           if (p.status === "COMPLETED") void refreshSummary();
         })
         .catch(() => {
-          /* silencioso — próximo tick tenta de novo */
+          /* silencioso */
         });
     }, 10000);
 
@@ -152,19 +187,78 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
     };
   }, [enrollment, selectedLesson, streamUrl, refreshSummary]);
 
-  async function markComplete() {
+  async function markComplete(silent = false) {
     if (!enrollment || !selectedLesson) return;
     try {
       await apiFetch(
         `/enrollments/${enrollment.id}/progress/lessons/${selectedLesson.lessonId}/complete`,
         { method: "POST" },
       );
-      toast.success("Aula marcada como concluída.");
+      if (!silent) toast.success("Aula marcada como concluída.");
+      await refreshSummary();
+    } catch (error) {
+      if (!silent) {
+        toast.error(
+          error instanceof ApiError
+            ? (error.body?.detail ?? error.message)
+            : "Falha ao concluir aula.",
+        );
+      }
+    }
+  }
+
+  async function goToNextAfterComplete() {
+    await markComplete(true);
+    if (nextLesson) {
+      setSelectedLessonId(nextLesson.lessonId);
+      const sameModule = nextLesson.moduleId === selectedLesson?.moduleId;
+      toast.success(
+        sameModule
+          ? "Próxima aula"
+          : `Próximo módulo: ${nextLesson.moduleTitle}`,
+      );
+    } else {
+      toast.success("Você concluiu todas as aulas.");
+      await refreshSummary();
+    }
+  }
+
+  async function finishCourse() {
+    if (!enrollment) return;
+    setFinishing(true);
+    try {
+      await apiFetch(`/enrollments/${enrollment.id}/complete-course`, { method: "POST" });
+      toast.success("Curso concluído. Emita o certificado abaixo.");
       await refreshSummary();
     } catch (error) {
       toast.error(
-        error instanceof ApiError ? (error.body?.detail ?? error.message) : "Falha ao concluir aula.",
+        error instanceof ApiError
+          ? (error.body?.detail ?? error.message)
+          : "Não foi possível concluir o curso.",
       );
+    } finally {
+      setFinishing(false);
+    }
+  }
+
+  async function issueCertificate() {
+    if (!enrollment) return;
+    setIssuing(true);
+    try {
+      const cert = await apiFetch<Certificate>(`/enrollments/${enrollment.id}/certificate/issue`, {
+        method: "POST",
+      });
+      toast.success("Certificado emitido.");
+      await refreshSummary();
+      router.push(`/my-certificates/${cert.id}`);
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError
+          ? (error.body?.detail ?? error.message)
+          : "Não foi possível emitir o certificado.",
+      );
+    } finally {
+      setIssuing(false);
     }
   }
 
@@ -176,6 +270,10 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
       </div>
     );
   }
+
+  const currentModule = summary.modules.find((m) =>
+    m.lessons.some((l) => l.lessonId === selectedLessonId),
+  );
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6 sm:p-8">
@@ -201,9 +299,15 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
           {selectedLesson ? (
             <>
               <div>
+                {currentModule && (
+                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                    {currentModule.moduleTitle}
+                  </p>
+                )}
                 <h2 className="font-serif text-lg font-medium tracking-tight">{selectedLesson.title}</h2>
                 <p className="text-xs text-muted-foreground">
-                  Status:{" "}
+                  Aula {selectedIndex + 1} de {flatLessons.length}
+                  {" · "}
                   {selectedLesson.progressStatus === "COMPLETED"
                     ? "Concluída"
                     : selectedLesson.progressStatus === "IN_PROGRESS"
@@ -221,28 +325,94 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
                   src={streamUrl}
                   controls
                   className="aspect-video w-full rounded-lg bg-navy-950"
-                  onEnded={() => void markComplete()}
+                  onEnded={() => void goToNextAfterComplete()}
                 />
               ) : (
                 <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-border/70 bg-surface text-sm text-muted-foreground">
                   {selectedLesson.currentVideoAssetId
-                    ? "Não foi possível carregar o vídeo."
-                    : "Esta aula ainda não tem vídeo. Você pode marcá-la como concluída manualmente."}
+                    ? "Não foi possível carregar o vídeo. Tente selecionar a aula de novo."
+                    : "Esta aula ainda não tem vídeo. Você pode marcá-la como concluída e seguir."}
                 </div>
               )}
 
-              {selectedLesson.progressStatus !== "COMPLETED" && (
-                <Button onClick={() => void markComplete()} variant="outline" className="w-fit">
-                  <CheckCircle2 className="size-4" />
-                  Marcar como concluída
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  disabled={!previousLesson}
+                  onClick={() => previousLesson && setSelectedLessonId(previousLesson.lessonId)}
+                >
+                  <ArrowLeft className="size-4" />
+                  Aula anterior
+                </Button>
+                {selectedLesson.progressStatus !== "COMPLETED" && (
+                  <Button variant="outline" onClick={() => void markComplete()}>
+                    <CheckCircle2 className="size-4" />
+                    Marcar como concluída
+                  </Button>
+                )}
+                {nextLesson ? (
+                  <Button
+                    className="ml-auto"
+                    onClick={() => {
+                      if (selectedLesson.progressStatus !== "COMPLETED") {
+                        void goToNextAfterComplete();
+                      } else {
+                        setSelectedLessonId(nextLesson.lessonId);
+                      }
+                    }}
+                  >
+                    {nextLesson.moduleId !== selectedLesson.moduleId
+                      ? "Próximo módulo"
+                      : "Próxima aula"}
+                    <ArrowRight className="size-4" />
+                  </Button>
+                ) : null}
+              </div>
+
+              {summary.canFinishCourse && (
+                <Button
+                  size="lg"
+                  className="h-14 w-full text-base"
+                  disabled={finishing}
+                  onClick={() => void finishCourse()}
+                >
+                  <CheckCircle2 className="size-5" />
+                  {finishing ? "Concluindo…" : "Concluir curso"}
                 </Button>
               )}
 
-              {summary.modules
-                .filter((m) => m.lessons.some((l) => l.lessonId === selectedLesson.lessonId))
-                .map((m) => (
-                  <StudentModuleQuiz key={m.moduleId} moduleId={m.moduleId} />
-                ))}
+              {summary.canIssueCertificate && (
+                <Button
+                  size="lg"
+                  className="h-14 w-full text-base"
+                  disabled={issuing}
+                  onClick={() => void issueCertificate()}
+                >
+                  <Award className="size-5" />
+                  {issuing ? "Emitindo…" : "Emitir certificado"}
+                </Button>
+              )}
+
+              {summary.certificateId && !summary.canIssueCertificate && (
+                <Button asChild size="lg" variant="outline" className="h-14 w-full text-base">
+                  <Link href={`/my-certificates/${summary.certificateId}`}>
+                    <Award className="size-5" />
+                    Ver meu certificado
+                  </Link>
+                </Button>
+              )}
+
+              {summary.courseCompletedAt && !summary.canIssueCertificate && !summary.certificateId && (
+                <p className="rounded-lg border border-border/70 bg-surface px-4 py-3 text-sm text-muted-foreground">
+                  Curso concluído. Para emitir o certificado, o curso precisa ter carga horária
+                  definida e (se houver) exercícios de módulo aprovados. Ajuste no construtor do
+                  curso ou conclua os exercícios.
+                </p>
+              )}
+
+              {currentModule && (
+                <StudentModuleQuiz key={currentModule.moduleId} moduleId={currentModule.moduleId} />
+              )}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">Nenhuma aula publicada neste curso.</p>
@@ -250,11 +420,19 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
         </div>
 
         <aside className="flex flex-col gap-4">
+          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            Conteúdo do curso
+          </p>
           {summary.modules.map((mod) => (
             <div key={mod.moduleId} className="rounded-lg border border-border/70 bg-surface-elevated p-3">
-              <p className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                {mod.moduleTitle}
-              </p>
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+                  {mod.moduleTitle}
+                </p>
+                <span className="text-[10px] text-muted-foreground">
+                  {mod.completedLessons}/{mod.totalPublishedLessons}
+                </span>
+              </div>
               <ul className="flex flex-col gap-1">
                 {mod.lessons.map((lesson) => {
                   const active = lesson.lessonId === selectedLessonId;
@@ -266,7 +444,9 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
                         onClick={() => setSelectedLessonId(lesson.lessonId)}
                         className={cn(
                           "flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                          active ? "bg-primary-soft text-primary-soft-foreground" : "hover:bg-muted/60",
+                          active
+                            ? "bg-primary-soft text-primary-soft-foreground"
+                            : "hover:bg-muted/60",
                         )}
                       >
                         {done ? (

@@ -154,7 +154,7 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
           title: data.title,
           description: data.description || null,
           coverImageUrl: course.coverImageUrl,
-          workloadHours: data.workloadHours ? Number(data.workloadHours) : null,
+          workloadHours: Number(data.workloadHours),
           minCompletionPercentage: course.minCompletionPercentage,
           minPassingScore: course.minPassingScore,
           certificateEnabled: course.certificateEnabled,
@@ -684,8 +684,8 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
               <Textarea id="edit-description" rows={4} {...editForm.register("description")} />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="edit-workload">Carga horária (opcional)</Label>
-              <Input id="edit-workload" type="number" min={0} step="0.5" {...editForm.register("workloadHours")} />
+              <Label htmlFor="edit-workload">Carga horária (obrigatória)</Label>
+              <Input id="edit-workload" type="number" min={0.5} step="0.5" required {...editForm.register("workloadHours")} />
             </div>
             <DialogFooter>
               <Button type="submit" disabled={editForm.formState.isSubmitting}>

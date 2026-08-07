@@ -66,7 +66,7 @@ function CoursesContent() {
         body: {
           title: data.title,
           description: data.description || null,
-          workloadHours: data.workloadHours ? Number(data.workloadHours) : null,
+          workloadHours: Number(data.workloadHours),
         },
       });
       toast.success("Curso criado com sucesso.");
@@ -111,8 +111,8 @@ function CoursesContent() {
                 <Textarea id="description" rows={3} {...register("description")} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="workloadHours">Carga horária (opcional)</Label>
-                <Input id="workloadHours" type="number" min={0} step="0.5" {...register("workloadHours")} />
+                <Label htmlFor="workloadHours">Carga horária (obrigatória)</Label>
+                <Input id="workloadHours" type="number" min={0.5} step="0.5" required {...register("workloadHours")} />
                 {errors.workloadHours && (
                   <p className="text-sm text-destructive">{errors.workloadHours.message}</p>
                 )}

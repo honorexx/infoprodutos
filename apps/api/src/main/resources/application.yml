@@ -48,6 +48,11 @@ app:
     local-root: ${VIDEO_STORAGE_LOCAL_ROOT:./data/videos}
     max-file-bytes: ${VIDEO_STORAGE_MAX_FILE_BYTES:524288000}
     stream-url-ttl-seconds: ${VIDEO_STREAM_URL_TTL_SECONDS:300}
+  certificate:
+    storage-local-root: ${CERTIFICATE_STORAGE_LOCAL_ROOT:./data/certificates}
+    public-web-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+    coordinator-name: ${CERTIFICATE_COORDINATOR_NAME:Rafael Kienen}
+    chief-vision-officer-name: ${CERTIFICATE_CVO_NAME:Pedro Honorio}
   ai:
     provider: ${AI_PROVIDER:mock}
     max-attempts: ${AI_JOB_MAX_ATTEMPTS:3}

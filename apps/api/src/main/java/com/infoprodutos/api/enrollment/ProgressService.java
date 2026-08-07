@@ -1,5 +1,7 @@
 package com.infoprodutos.api.enrollment;
 
+import com.infoprodutos.api.certificate.CertificateEligibilityService;
+import com.infoprodutos.api.certificate.repository.CertificateRepository;
 import com.infoprodutos.api.common.exception.BadRequestException;
 import com.infoprodutos.api.common.exception.ForbiddenOperationException;
 import com.infoprodutos.api.course.CourseAccessGuard;
@@ -40,6 +42,8 @@ public class ProgressService {
     private final LessonRepository lessonRepository;
     private final ModuleRepository moduleRepository;
     private final CourseAccessGuard courseAccessGuard;
+    private final CertificateEligibilityService certificateEligibilityService;
+    private final CertificateRepository certificateRepository;
 
     @Transactional
     public LessonProgressResponse start(UUID enrollmentId, UUID lessonId, CustomUserDetails principal) {
@@ -160,6 +164,13 @@ public class ProgressService {
         }
 
         double coursePct = totalLessons == 0 ? 0.0 : (100.0 * completedLessons / totalLessons);
+        boolean allDone = totalLessons > 0 && completedLessons == totalLessons;
+        boolean canFinish = allDone && enrollment.getCompletedAt() == null;
+        var certificate = certificateRepository.findByEnrollmentId(enrollmentId);
+        boolean canIssue = enrollment.getCompletedAt() != null
+                && certificate.isEmpty()
+                && certificateEligibilityService.isEligibleForCertificate(enrollment);
+
         return new ProgressSummaryResponse(
                 enrollment.getId().toString(),
                 courseId.toString(),
@@ -168,6 +179,10 @@ public class ProgressService {
                 totalLessons,
                 completedLessons,
                 round1(coursePct),
+                canFinish,
+                enrollment.getCompletedAt(),
+                canIssue,
+                certificate.map(c -> c.getId().toString()).orElse(null),
                 moduleSummaries);
     }
 

@@ -50,12 +50,12 @@ describe("registerSchema", () => {
 });
 
 describe("courseFormSchema", () => {
-  it("aceita título obrigatório e demais campos opcionais", () => {
-    expect(courseFormSchema.safeParse({ title: "Curso de Java" }).success).toBe(true);
+  it("exige carga horária", () => {
+    expect(courseFormSchema.safeParse({ title: "Curso de Java" }).success).toBe(false);
   });
 
   it("rejeita título vazio", () => {
-    expect(courseFormSchema.safeParse({ title: "" }).success).toBe(false);
+    expect(courseFormSchema.safeParse({ title: "", workloadHours: "10" }).success).toBe(false);
   });
 
   it("aceita carga horária numérica válida", () => {

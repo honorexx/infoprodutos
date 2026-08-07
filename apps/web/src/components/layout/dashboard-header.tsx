@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, ChevronDown, LogOut, Menu, Search, Settings } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { mockNotifications } from "@/mocks/dashboard";
 import { Button } from "@/components/ui/button";
+import { LogoMark } from "@/components/logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +49,10 @@ export function DashboardHeader({ onOpenMobileNav }: { onOpenMobileNav: () => vo
       <Button variant="ghost" size="icon" className="md:hidden" onClick={onOpenMobileNav} aria-label="Abrir menu">
         <Menu className="size-5" />
       </Button>
+      {/* Logo só no mobile — no desktop fica na sidebar dourada */}
+      <Link href="/" className="shrink-0 md:hidden" aria-label="PKS Consultoria">
+        <LogoMark variant="gold" className="size-9" />
+      </Link>
 
       <label className="relative hidden max-w-sm flex-1 md:block">
         <span className="sr-only">Buscar</span>

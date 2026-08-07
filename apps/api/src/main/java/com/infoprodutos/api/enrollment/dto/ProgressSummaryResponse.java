@@ -1,5 +1,6 @@
 package com.infoprodutos.api.enrollment.dto;
 
+import java.time.Instant;
 import java.util.List;
 
 public record ProgressSummaryResponse(
@@ -10,6 +11,10 @@ public record ProgressSummaryResponse(
         int totalPublishedLessons,
         int completedLessons,
         double courseCompletionPercent,
+        boolean canFinishCourse,
+        Instant courseCompletedAt,
+        boolean canIssueCertificate,
+        String certificateId,
         List<ModuleProgressSummary> modules) {
 
     public record ModuleProgressSummary(

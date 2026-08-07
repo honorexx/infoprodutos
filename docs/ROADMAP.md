@@ -127,15 +127,17 @@ Critérios de aceite:
 - Rejeição em massa e aprovação em massa funcionam corretamente e são auditadas.
 - Teste garantindo que nenhum endpoint permite publicar questão `AI_GENERATED` sem `approved_by_user_id`.
 
-## Fase 8 — Certificados
+## Fase 8 — Certificados ✅ CONCLUÍDA (2026-08-07)
 
-Escopo: `Certificate`; cálculo de elegibilidade (conclusão mínima, exercícios obrigatórios, nota mínima — critérios de `PRD.md` §8, pendentes confirmação); geração de código de validação único; página pública de validação; emissão de PDF (mecanismo a definir na implementação desta fase).
+Escopo: conclusão formal do curso; `Certificate` institucional (PDF + QR); elegibilidade; página pública de validação; carga horária obrigatória no curso; UI aluno (`Concluir curso` → `Emitir certificado` → `Meus certificados`).
 
 Critérios de aceite:
-- Certificado só é emitido quando todos os critérios configurados no curso são cumpridos (teste cobrindo cada critério isoladamente e combinado).
-- Página pública de validação retorna apenas os dados permitidos (ver `SECURITY.md` §9), nada além disso.
-- Certificado revogado é sinalizado corretamente na validação pública sem ser excluído do histórico.
-- Dados do certificado são snapshot (edição posterior do curso/usuário não altera certificados já emitidos).
+- [x] Botão **Concluir curso** só aparece quando todas as aulas publicadas estão concluídas (`canFinishCourse`).
+- [x] Certificado só é emitido com `completed_at`, `certificateEnabled`, carga horária > 0, % mínima do curso e quizzes de módulo publicados com melhor tentativa ≥ nota mínima.
+- [x] Página pública `/certificados/{codigo}` retorna apenas dados permitidos (sem professor; assinaturas institucionais).
+- [x] Dados do certificado são snapshot imutável; um certificado por matrícula.
+- [x] Carga horária obrigatória (≥ 0,5h) na criação/edição do curso (API + web).
+- [x] PDF gerado (OpenPDF) com QR apontando para validação pública.
 
 ## Fase 9 — Hardening, Auditoria e Testes de Segurança
 

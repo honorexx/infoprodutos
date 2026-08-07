@@ -217,6 +217,10 @@ export interface ProgressSummary {
   totalPublishedLessons: number;
   completedLessons: number;
   courseCompletionPercent: number;
+  canFinishCourse: boolean;
+  courseCompletedAt: string | null;
+  canIssueCertificate: boolean;
+  certificateId: string | null;
   modules: ModuleProgressSummary[];
 }
 
@@ -235,6 +239,33 @@ export interface LessonProgress {
   startedAt: string | null;
   completedAt: string | null;
   updatedAt: string;
+}
+
+export interface Certificate {
+  id: string;
+  enrollmentId: string;
+  courseId: string;
+  studentName: string;
+  courseTitle: string;
+  workloadHours: number;
+  completionDate: string;
+  issuedAt: string;
+  validationCode: string;
+  validationUrl: string;
+  status: string;
+  coordinatorName: string;
+  chiefVisionOfficerName: string;
+}
+
+export interface PublicCertificateValidation {
+  valid: boolean;
+  status: string;
+  studentName: string;
+  courseTitle: string;
+  workloadHours: number;
+  completionDate: string;
+  validationCode: string;
+  issuedDate: string;
 }
 
 export interface QuizDetail {

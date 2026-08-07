@@ -22,9 +22,9 @@ export function AuthSplitLayout({
   return (
     <div className="grid flex-1 lg:grid-cols-2">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-navy-950 px-10 py-10 text-foreground lg:flex xl:px-16">
-        <Link href="/">
-          <Logo markClassName="bg-navy-850 text-foreground" />
-        </Link>
+          <Link href="/" aria-label="PKS Consultoria">
+            <Logo size="lg" priority />
+          </Link>
         <div className="relative flex flex-col gap-5">
           <span className="kicker text-accent">{kicker}</span>
           <h2 className="text-balance font-heading text-3xl leading-tight font-medium tracking-tight xl:text-4xl">
@@ -41,14 +41,14 @@ export function AuthSplitLayout({
           </ul>
         </div>
         <p className="relative text-xs text-slate-400">
-          © {new Date().getFullYear()} Infoprodutos
+          © {new Date().getFullYear()} PKS Consultoria
         </p>
       </div>
 
       <div className="flex flex-1 items-center justify-center px-6 py-16 sm:px-10">
         <div className="flex w-full max-w-sm flex-col gap-6">
-          <Link href="/" className="lg:hidden">
-            <Logo />
+          <Link href="/" className="lg:hidden" aria-label="PKS Consultoria">
+            <Logo size="sm" priority />
           </Link>
           {children}
         </div>

@@ -106,7 +106,8 @@ class CourseServiceTest {
                 .requireManageAccess(course.getId(), principal);
 
         CourseUpdateRequest request =
-                new CourseUpdateRequest("Novo título", null, null, null, null, null, true, null);
+                new CourseUpdateRequest(
+                        "Novo título", null, null, java.math.BigDecimal.TEN, null, null, true, null);
 
         assertThatThrownBy(() -> courseService.update(course.getId(), request, principal))
                 .isInstanceOf(ForbiddenOperationException.class);
@@ -116,7 +117,8 @@ class CourseServiceTest {
     void update_notFound_throwsNotFound() {
         when(courseRepository.findActiveById(any())).thenReturn(Optional.empty());
         CustomUserDetails principal = new CustomUserDetails(userWithRole(RoleCode.SUPER_ADMIN));
-        CourseUpdateRequest request = new CourseUpdateRequest("Titulo", null, null, null, null, null, true, null);
+        CourseUpdateRequest request =
+                new CourseUpdateRequest("Titulo", null, null, java.math.BigDecimal.ONE, null, null, true, null);
 
         assertThatThrownBy(() -> courseService.update(UUID.randomUUID(), request, principal))
                 .isInstanceOf(NotFoundException.class);

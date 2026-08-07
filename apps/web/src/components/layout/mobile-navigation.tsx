@@ -48,15 +48,8 @@ export function MobileNavigation({
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             className="relative flex w-[280px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
           >
-            <div className="flex items-center justify-between px-4 py-3.5">
-              <span className="flex items-center gap-2.5">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-navy-950 text-white">
-                  <LogoMark className="size-4" />
-                </span>
-                <span className="font-serif text-[1.05rem] leading-none font-medium tracking-tight text-sidebar-foreground italic">
-                  Infoprodutos
-                </span>
-              </span>
+            <div className="flex items-center justify-between gap-2 border-b border-sidebar-border/60 px-3 py-3.5">
+              <LogoMark variant="ink" className="size-11" />
               <Button
                 variant="ghost"
                 size="icon-sm"

@@ -166,10 +166,14 @@ Estrutura análoga a módulos: `GET`, `POST`, `PUT`, `DELETE`, `/reorder`, `/pub
 
 | Método | Rota | Papel | Descrição |
 |---|---|---|---|
+| POST | `/enrollments/{id}/complete-course` | STUDENT dono | Conclusão formal: exige todas as aulas publicadas concluídas; grava `enrollment.completed_at` |
+| POST | `/enrollments/{id}/certificate/issue` | STUDENT dono | Emite certificado se elegível (curso com certificado, carga > 0, curso concluído, % mínima, quizzes de módulo publicados aprovados); idempotente |
 | GET | `/certificates/me` | STUDENT | Meus certificados |
-| POST | `/enrollments/{id}/certificate/issue` | STUDENT dono (auto-elegibilidade) ou sistema | Emite certificado se critérios cumpridos |
+| GET | `/certificates/{id}` | STUDENT dono, SUPER_ADMIN | Detalhe |
 | GET | `/certificates/{id}/pdf` | STUDENT dono, SUPER_ADMIN | Download do PDF |
-| GET | `/public/certificates/validate/{validationCode}` | **público** | Validação pública — retorna apenas nome do aluno, curso, professor, carga horária, data e status (válido/revogado); nenhum dado sensível adicional |
+| GET | `/public/certificates/validate/{validationCode}` | **público** | Validação — nome do aluno, curso, carga horária, data de conclusão/emissão e status; sem dados sensíveis adicionais |
+
+`GET .../progress/summary` inclui `canFinishCourse`, `courseCompletedAt`, `canIssueCertificate`, `certificateId`.
 
 ### 2.12 IA — jobs e revisão (`/api/v1/ai`)
 

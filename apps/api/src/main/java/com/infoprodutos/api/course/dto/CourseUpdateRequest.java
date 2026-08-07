@@ -3,6 +3,7 @@ package com.infoprodutos.api.course.dto;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
@@ -12,7 +13,9 @@ public record CourseUpdateRequest(
                 String title,
         String description,
         @Size(max = 500, message = "URL da capa deve ter no máximo 500 caracteres") String coverImageUrl,
-        @DecimalMin(value = "0", message = "carga horária não pode ser negativa") BigDecimal workloadHours,
+        @NotNull(message = "carga horária é obrigatória")
+                @DecimalMin(value = "0.5", message = "carga horária deve ser pelo menos 0,5h")
+                BigDecimal workloadHours,
         @DecimalMin(value = "0") @DecimalMax(value = "100") BigDecimal minCompletionPercentage,
         @DecimalMin(value = "0") @DecimalMax(value = "100") BigDecimal minPassingScore,
         boolean certificateEnabled,

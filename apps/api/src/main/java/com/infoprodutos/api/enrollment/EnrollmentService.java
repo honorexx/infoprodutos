@@ -141,7 +141,7 @@ public class EnrollmentService {
         return EnrollmentResponse.from(enrollment);
     }
 
-    Enrollment findOrThrow(UUID id) {
+    public Enrollment findOrThrow(UUID id) {
         return enrollmentRepository
                 .findByIdWithDetails(id)
                 .orElseThrow(() -> new NotFoundException("Matrícula não encontrada."));

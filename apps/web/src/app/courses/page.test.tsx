@@ -108,12 +108,16 @@ describe("CoursesPage", () => {
 
     await user.click(screen.getByRole("button", { name: /novo curso/i }));
     await user.type(screen.getByLabelText("Título"), "Curso Novo");
+    await user.type(screen.getByLabelText(/carga horária/i), "10");
     await user.click(screen.getByRole("button", { name: /^criar curso$/i }));
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/courses/new-course-id"));
     expect(apiFetchMock).toHaveBeenCalledWith(
       "/courses",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        body: expect.objectContaining({ title: "Curso Novo", workloadHours: 10 }),
+      }),
     );
   });
 });

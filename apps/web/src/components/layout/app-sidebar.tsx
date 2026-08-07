@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { sidebarTransition } from "@/lib/animations";
 import { primaryNavigation, upcomingNavigation, filterNavByRole, type NavItem } from "@/config/navigation";
-import { LogoMark } from "@/components/logo";
+import { LogoMark, SidebarBrand } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -51,15 +51,13 @@ export function AppSidebar({
       transition={sidebarTransition}
       className="sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex"
     >
-      <div className={cn("flex h-16 items-center gap-2.5 px-4", collapsed && "justify-center px-0")}>
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-navy-950 text-white">
-          <LogoMark className="size-4" />
-        </span>
-        {!collapsed && (
-          <span className="whitespace-nowrap font-serif text-[1.1rem] leading-none font-medium tracking-tight text-sidebar-foreground italic">
-            Infoprodutos
-          </span>
+      <div
+        className={cn(
+          "flex h-16 items-center justify-center border-b border-sidebar-border/60",
+          collapsed ? "px-0" : "px-3",
         )}
+      >
+        <SidebarBrand collapsed={collapsed} />
       </div>
 
       <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-2">

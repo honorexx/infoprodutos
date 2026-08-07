@@ -124,7 +124,7 @@ erDiagram
 | slug | VARCHAR(220) | UNIQUE NOT NULL (usado em URLs públicas) |
 | description | TEXT | NULL |
 | cover_image_url | VARCHAR(500) | NULL |
-| workload_hours | NUMERIC(6,2) | NULL |
+| workload_hours | NUMERIC(6,2) | NOT NULL (mínimo 0,5h na aplicação — obrigatório para certificado) |
 | status | VARCHAR(20) | NOT NULL DEFAULT `DRAFT`; CHECK IN (`DRAFT`, `PUBLISHED`, `ARCHIVED`) |
 | min_completion_percentage | NUMERIC(5,2) | NOT NULL DEFAULT 100 |
 | min_passing_score | NUMERIC(5,2) | NOT NULL DEFAULT 70 |
@@ -314,6 +314,7 @@ A regra "exatamente 4 alternativas" e "exatamente uma correta" (não zero) é va
 | course_id | UUID | FK -> course, NOT NULL |
 | status | VARCHAR(20) | NOT NULL DEFAULT `ACTIVE`; CHECK IN (`ACTIVE`, `SUSPENDED`, `CANCELLED`, `EXPIRED`) |
 | started_at | TIMESTAMPTZ | NOT NULL DEFAULT now() |
+| completed_at | TIMESTAMPTZ | NULL (conclusão formal do curso pelo aluno — pré-requisito do certificado) |
 | expires_at | TIMESTAMPTZ | NULL |
 | granted_by_user_id | UUID | FK -> user, NULL |
 | created_at / updated_at | TIMESTAMPTZ | NOT NULL |
@@ -370,16 +371,23 @@ A regra "exatamente 4 alternativas" e "exatamente uma correta" (não zero) é va
 |---|---|---|
 | id | UUID | PK |
 | enrollment_id | UUID | FK -> enrollment, UNIQUE NOT NULL |
-| validation_code | VARCHAR(20) | UNIQUE NOT NULL |
+| student_user_id | UUID | FK -> user, NOT NULL |
+| course_id | UUID | FK -> course, NOT NULL |
+| validation_code | VARCHAR(32) | UNIQUE NOT NULL |
+| status | VARCHAR(20) | NOT NULL DEFAULT `ISSUED`; CHECK IN (`ISSUED`, `REVOKED`) |
 | issued_at | TIMESTAMPTZ | NOT NULL |
+| completion_date | DATE | NOT NULL |
 | student_name_snapshot | VARCHAR(150) | NOT NULL |
 | course_title_snapshot | VARCHAR(200) | NOT NULL |
-| instructor_name_snapshot | VARCHAR(150) | NOT NULL |
-| workload_hours_snapshot | NUMERIC(6,2) | NULL |
-| pdf_url | VARCHAR(500) | NULL |
+| workload_hours_snapshot | NUMERIC(6,2) | NOT NULL |
+| coordinator_name_snapshot | VARCHAR(150) | NOT NULL |
+| chief_vision_officer_name_snapshot | VARCHAR(150) | NOT NULL |
+| pdf_path | VARCHAR(500) | NULL |
+| validation_url | VARCHAR(500) | NOT NULL |
 | revoked_at | TIMESTAMPTZ | NULL |
+| created_at / updated_at | TIMESTAMPTZ | NOT NULL |
 
-**[DECISÃO]** Dados exibidos no certificado são **snapshots no momento da emissão** (nome do aluno, curso, professor, carga horária), não referências dinâmicas — garante que o certificado emitido não mude retroativamente se o curso for editado depois. Índice em `validation_code` para a página pública de validação.
+**[DECISÃO]** Certificado é **institucional da plataforma** (não do instrutor do curso). Snapshots no momento da emissão: aluno, título do curso, carga horária, coordenador (Rafael Kienen) e CVO (Pedro Honorio). Sem `instructor_name`. Índice em `validation_code` para a página pública. Um certificado por matrícula (`UNIQUE enrollment_id`); reemissão retorna o existente.
 
 ### 5.19 `ai_generation_job`
 

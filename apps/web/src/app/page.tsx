@@ -85,7 +85,7 @@ export default function Home() {
           <div className="flex flex-col gap-6">
             <span className="kicker">Educação digital profissional</span>
             <h1 className="text-balance font-heading text-4xl leading-[1.08] font-medium tracking-tight sm:text-5xl lg:text-[3.4rem]">
-              Cursos e infoprodutos com a{" "}
+              Cursos e consultoria com a{" "}
               <span className="italic text-accent">estrutura</span> de uma
               escola de verdade.
             </h1>
@@ -202,7 +202,7 @@ export default function Home() {
 
       <footer className="border-t border-border/70">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-6 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <p>© {new Date().getFullYear()} Infoprodutos. Plataforma em construção por fases.</p>
+          <p>© {new Date().getFullYear()} PKS Consultoria. Plataforma em construção por fases.</p>
           <p>Feito com Next.js e Spring Boot.</p>
         </div>
       </footer>
