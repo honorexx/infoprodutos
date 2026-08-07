@@ -1,0 +1,14 @@
+app:
+  jwt:
+    secret: "test-only-secret-key-please-do-not-use-in-any-real-environment-32bytes+"
+    access-token-ttl-minutes: 15
+    refresh-token-ttl-days: 7
+  cors:
+    allowed-origins: http://localhost:3000
+  dev-seed:
+    enabled: false
+
+logging:
+  level:
+    com.infoprodutos: INFO
+    org.testcontainers: INFO

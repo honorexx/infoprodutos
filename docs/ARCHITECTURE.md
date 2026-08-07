@@ -28,29 +28,32 @@ Convenções `[DECISÃO]` / `[SUPOSIÇÃO]` / `[PERGUNTA ABERTA]` conforme defin
 
 ## 3. Stack tecnológica e versões
 
-**[DECISÃO — a confirmar/pinar na Fase 0]** Versões estáveis (LTS quando aplicável) na data de início do projeto:
+**[DECISÃO — pinado na Fase 1, ver `DECISIONS.md` §"Decisões reais da Fase 1"]** Versões efetivamente implementadas:
 
-| Camada | Tecnologia | Versão alvo |
-|---|---|---|
-| Frontend | Next.js | 14.x (App Router) |
-| Frontend | React | 18.x |
-| Frontend | TypeScript | 5.4+ |
-| Frontend | Tailwind CSS | 3.4+ |
-| Frontend | Componentes | shadcn/ui (Radix UI + Tailwind) |
-| Frontend | Formulários/validação | React Hook Form + Zod |
-| Frontend | Cliente HTTP | Cliente tipado gerado a partir do OpenAPI da API (ex.: `openapi-typescript` + wrapper `fetch` central) |
-| Frontend | Gerenciador de pacotes | pnpm (workspaces) |
-| Backend | Java | 21 (LTS) |
-| Backend | Spring Boot | 3.3.x |
-| Backend | Spring Security | incluso no Boot 3.3.x |
-| Backend | Spring Data JPA / Hibernate | incluso no Boot 3.3.x |
-| Backend | Bean Validation | Hibernate Validator (Jakarta Validation 3.x) |
-| Backend | Migrações | Flyway 10.x |
-| Backend | Documentação de API | springdoc-openapi 2.x |
-| Backend | Testes | JUnit 5, Mockito 5, Testcontainers 1.19+ |
-| Backend | Build | Maven (multi-módulo) ou Gradle — **[PERGUNTA ABERTA]**: confirmar preferência; proposta padrão: Maven, por maior familiaridade média em times Spring |
-| Banco | PostgreSQL | 16.x |
-| Infra local | Docker Compose | — |
+| Camada | Tecnologia | Versão alvo | Versão real (Fase 1) |
+|---|---|---|---|
+| Frontend | Next.js | 14.x (App Router) | **16.3.0** (App Router) — ver nota de desvio abaixo |
+| Frontend | React | 18.x | **19.2.8** (versão exigida pelo Next.js 16) |
+| Frontend | TypeScript | 5.4+ | 5.9.3 |
+| Frontend | Tailwind CSS | 3.4+ | **4.x** (instalado pelo `create-next-app`/shadcn atuais) |
+| Frontend | Componentes | shadcn/ui (Radix UI + Tailwind) | shadcn/ui (preset Nova, base Radix) |
+| Frontend | Formulários/validação | React Hook Form + Zod | React Hook Form 7 + Zod 4 |
+| Frontend | Cliente HTTP | Cliente tipado a partir do OpenAPI | **Fase 1: wrapper `fetch` central manual** (`src/lib/api-client.ts`), com refresh automático em 401. Geração a partir do OpenAPI fica para fase futura, quando o contrato estabilizar. |
+| Frontend | Gerenciador de pacotes | pnpm (workspaces) | pnpm (sem workspaces ainda — apenas `apps/web` tem `package.json` na Fase 1) |
+| Backend | Java | 21 (LTS) | 21 (LTS) |
+| Backend | Spring Boot | 3.3.x | **3.5.16** |
+| Backend | Spring Security | incluso no Boot 3.3.x | incluso no Boot 3.5.16 |
+| Backend | Spring Data JPA / Hibernate | incluso no Boot 3.3.x | incluso no Boot 3.5.16 |
+| Backend | Bean Validation | Hibernate Validator (Jakarta Validation 3.x) | Hibernate Validator (Jakarta Validation 3.x) |
+| Backend | Migrações | Flyway 10.x | Flyway (gerenciado pelo Spring Boot 3.5.16) |
+| Backend | Documentação de API | springdoc-openapi 2.x | springdoc-openapi 2.8.17 |
+| Backend | JWT | — | jjwt 0.12.6 (HS256) |
+| Backend | Testes | JUnit 5, Mockito 5, Testcontainers 1.19+ | JUnit 5, Mockito 5, Testcontainers 1.20.4 |
+| Backend | Build | Maven (multi-módulo) ou Gradle — **[PERGUNTA ABERTA]** | **DECIDIDO: Maven** (pergunta #2 de `DECISIONS.md` resolvida) |
+| Banco | PostgreSQL | 16.x | 16 (`postgres:16-alpine` no Docker Compose) |
+| Infra local | Docker Compose | — | `docker-compose.yml` na raiz (Postgres + api + web) |
+
+**Nota de desvio — versão do Next.js:** o prompt de implementação da Fase 1 mencionava Next.js 14; como o `create-next-app` estável no momento da implementação já instala a linha 16.x (com React 19), optou-se por seguir a versão estável mais recente em vez de fixar manualmente uma versão desatualizada, evitando dívida técnica imediata. A API pública usada (App Router, Server/Client Components, Route Handlers) é compatível com o que foi planejado; nenhuma decisão de arquitetura deste documento dependia especificamente da versão 14. Se houver motivo de negócio para fixar a v14, é uma mudança de baixo custo nesta fase inicial.
 
 **[SUPOSIÇÃO]** shadcn/ui foi escolhido por ser acessível (baseado em Radix), altamente customizável (código copiado para o projeto, sem "cara de template genérico") e compatível com Tailwind — atende ao requisito de UI "profissional, moderna, sem aparência genérica". Alternativa considerada e descartada por ora: Material UI (visual mais "padrão", menos flexível para identidade própria).
 
@@ -151,9 +154,15 @@ Nenhum binário de vídeo é armazenado no PostgreSQL.
 ## 8. Autenticação e sessão
 
 **[DECISÃO]**
-- Autenticação via **JWT** (access token de curta duração, ex.: 15 min) + **refresh token** (maior duração, ex.: 7 dias), este último armazenado em cookie `httpOnly`, `Secure`, `SameSite=Lax/Strict` para mitigar XSS/CSRF.
+- Autenticação via **JWT** (access token de curta duração, ex.: 15 min) + **refresh token** (maior duração, ex.: 7 dias), este último armazenado em cookie `httpOnly`, `Secure` (em produção), `SameSite=Lax` para mitigar XSS/CSRF.
 - Autorização por papel e por posse (ownership) usando `@PreAuthorize` do Spring Security nos controllers/serviços, nunca apenas checagem no frontend.
 - Front-end nunca guarda o access token em `localStorage` (mitigação de XSS); mantém em memória/estado do app, renovando via endpoint de refresh.
+
+**Implementado na Fase 1 (detalhe relevante para fases futuras):** como `apps/web` (ex.: `localhost:3000`) e `apps/api` (ex.: `localhost:8080`) são origens diferentes, o cookie `httpOnly` de refresh token pertence ao domínio da API e **não é legível pelo servidor Next.js** (middleware/SSR) — apenas o navegador o envia automaticamente em chamadas `fetch` com `credentials: "include"` diretamente à API. Por isso, a proteção de rota no frontend é feita **no client-side**:
+- Um `AuthProvider` (`apps/web/src/lib/auth-context.tsx`) chama `POST /auth/refresh` ao montar a aplicação para tentar obter um access token novo a partir do cookie; em caso de sucesso, busca `GET /auth/me` para popular o usuário/papéis em memória.
+- Um componente `ProtectedRoute` (`apps/web/src/components/protected-route.tsx`) redireciona para `/login` se não autenticado, ou para `/dashboard` se o papel não é permitido, exibindo um skeleton de carregamento enquanto isso.
+- Toda regra de autorização real permanece no backend (`@PreAuthorize`); a proteção de rota no frontend é apenas UX, nunca a única barreira.
+- Caso um domínio compartilhado (ex.: `app.infoprodutos.com` + `api.infoprodutos.com` com cookie em `.infoprodutos.com`) seja adotado em produção, um middleware Next.js baseado em cookie passa a ser possível como camada adicional — não implementado na Fase 1 por não ser o cenário de desenvolvimento local.
 
 ## 9. Requisitos não funcionais (MVP)
 

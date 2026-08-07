@@ -1,0 +1,74 @@
+name: infoprodutos
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-infoprodutos}
+      POSTGRES_USER: ${DB_USER:-infoprodutos}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-infoprodutos}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - infoprodutos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-infoprodutos} -d ${DB_NAME:-infoprodutos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: 8080
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-infoprodutos}
+      DB_USER: ${DB_USER:-infoprodutos}
+      DB_PASSWORD: ${DB_PASSWORD:-infoprodutos}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no arquivo .env (minimo 32 bytes aleatorios)}
+      JWT_ACCESS_TOKEN_TTL_MINUTES: ${JWT_ACCESS_TOKEN_TTL_MINUTES:-15}
+      JWT_REFRESH_TOKEN_TTL_DAYS: ${JWT_REFRESH_TOKEN_TTL_DAYS:-7}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:3000}
+      DEV_SEED_ENABLED: ${DEV_SEED_ENABLED:-true}
+      DEV_SEED_ADMIN_EMAIL: ${DEV_SEED_ADMIN_EMAIL:-admin@dev.local}
+      DEV_SEED_ADMIN_PASSWORD: ${DEV_SEED_ADMIN_PASSWORD:-}
+      DEV_SEED_INSTRUCTOR_EMAIL: ${DEV_SEED_INSTRUCTOR_EMAIL:-instrutor@dev.local}
+      DEV_SEED_INSTRUCTOR_PASSWORD: ${DEV_SEED_INSTRUCTOR_PASSWORD:-}
+      DEV_SEED_STUDENT_EMAIL: ${DEV_SEED_STUDENT_EMAIL:-aluno@dev.local}
+      DEV_SEED_STUDENT_PASSWORD: ${DEV_SEED_STUDENT_PASSWORD:-}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  infoprodutos_pgdata:

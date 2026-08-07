@@ -75,6 +75,46 @@ Resumo das decisões arquiteturais registradas em detalhe nos respectivos docume
 16. Flyway como única ferramenta de migração; `ddl-auto` do Hibernate desabilitado em todos os ambientes — `DATABASE.md` §7.
 17. shadcn/ui + Tailwind como base de componentes do frontend — `ARCHITECTURE.md` §3.
 
+## Decisões reais da Fase 1 (implementação — 2026-08-06)
+
+A implementação da Fase 1 ("Fundação": monorepo, auth, RBAC — nomeada assim no prompt de execução, cobrindo o que este documento originalmente separava em "Fase 0" e "Fase 1" do `ROADMAP.md`) resolveu e/ou confirmou os seguintes pontos:
+
+| # | Item | Resolução |
+|---|---|---|
+| Pergunta #2 | Build tool do backend | **DECIDIDO: Maven** (proposta padrão confirmada) |
+| Pergunta #18 | Algoritmo JWT | **DECIDIDO: HS256** (proposta padrão confirmada) — segredo mínimo de 32 bytes validado em runtime (`JwtService`); a aplicação recusa subir sem `JWT_SECRET` válido |
+| Pergunta #24 | Vitest vs. Jest no frontend | **DECIDIDO: Vitest** (proposta padrão confirmada), com Testing Library para componentes |
+| Pergunta #1 | Cadastro público só para STUDENT | **DECIDIDO conforme proposta:** `POST /auth/register` sempre atribui papel `STUDENT`; papéis `INSTRUCTOR`/`SUPER_ADMIN` só são atribuídos por um `SUPER_ADMIN` via `POST /users/{id}/roles` |
+| — | Versão do Next.js | **DESVIO do plano original (Next 14 → Next 16.3.0)** — ver `ARCHITECTURE.md` §3 para justificativa. Nenhum requisito funcional foi impactado; App Router e o restante da stack (Tailwind, shadcn/ui, RHF+Zod) seguem como planejado |
+| — | Proteção de rota no frontend | Implementada 100% client-side via `AuthProvider` + `ProtectedRoute`, dado que o cookie `httpOnly` do refresh token pertence à origem da API e não é legível por um middleware Next.js rodando em outra origem/porta em ambiente de desenvolvimento local. Detalhe completo em `ARCHITECTURE.md` §8 |
+| — | Geração de cliente HTTP a partir do OpenAPI | Adiada: Fase 1 usa um wrapper `fetch` central escrito à mão (`apps/web/src/lib/api-client.ts`), incluindo retry automático de uma única tentativa após renovação de token em respostas 401. Geração automática a partir do `springdoc-openapi` fica para quando o contrato de API estabilizar (reduz risco de churn de código gerado nesta fase inicial) |
+| — | Endpoints de auth publicamente acessíveis | `register`, `login`, `refresh`, `logout`, `password/forgot`, `password/reset` são as únicas rotas de `/api/v1/auth/**` com `permitAll()`; `GET /auth/me` e `POST /auth/password/change` exigem autenticação (reforçado também com `@PreAuthorize("isAuthenticated()")` no controller, como defesa em profundidade contra erro de configuração do `SecurityConfig`) |
+| — | Charset das respostas de erro de segurança | `RestAuthenticationEntryPoint` e `RestAccessDeniedHandler` fixam `response.setCharacterEncoding("UTF-8")` explicitamente antes de escrever o corpo JSON — o padrão do Tomcat (`ISO-8859-1`) corrompia acentuação em mensagens de erro em português |
+| — | Ambiente de execução de testes de integração/Docker | O sandbox usado durante a implementação **não tem Docker disponível** (nem `dockerd`, nem `docker compose`). Testes de integração com Testcontainers (`AuthControllerIT`, `AuthorizationIT`) foram escritos e compilam, mas não foram executados neste ambiente — apenas os testes unitários (`mvn test`, 20 testes) rodaram de fato. `docker-compose.yml`/`Dockerfile`s foram escritos seguindo boas práticas (multi-stage build, usuário não-root, saída `standalone` do Next.js) mas não puderam ser buildados/executados aqui. Recomenda-se rodar `mvn verify` e `docker compose up --build` em um ambiente com Docker antes do deploy |
+
+## Decisões do sistema visual (Design System — implementação, 2026-08-06)
+
+Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de negócio, contratos de API, banco de dados ou funcionalidades. Detalhamento completo em `docs/DESIGN_SYSTEM.md`.
+
+| # | Item | Resolução |
+|---|---|---|
+| — | Combinação tipográfica | **DECIDIDO:** Fraunces (heading, serifado editorial) + Public Sans (interface) + Geist Mono (código), via `next/font/google`, para evitar a combinação genérica "Inter em tudo" |
+| — | Cor primária vs. cor de destaque | **DECIDIDO:** primária = tinta quase-preta (confiante, editorial); verde sofisticado reservado como `accent`, usado com moderação (links, estado ativo, foco, tags) — não pinta grandes áreas |
+| — | Itens de menu ainda não implementados (Alunos, Certificados, Configurações) | **DECIDIDO:** aparecem na navegação lateral com selo "Em breve". **Processamentos de IA** passou a ser rota real (`/ai`) após a Fase 3 |
+| — | Métricas do dashboard sem dado real disponível ainda (alunos ativos, taxa de conclusão) | **DECIDIDO:** placeholders explícitos "Em breve nas próximas fases", nunca com número inventado. Métricas com dado real (`/courses`, `/users`) são calculadas em runtime. O dashboard demo com mocks de alunos/IA foi removido |
+
+## Decisões reais da Fase 3 (vídeos + IA — implementação, 2026-08-06)
+
+| # | Item | Resolução |
+|---|---|---|
+| — | Escopo vs. ROADMAP original | **DECIDIDO pelo prompt do usuário:** entregar o fluxo vertical (vídeo → transcrição → geração → revisão) numa única fase, unificando o que o ROADMAP separava em 3/6/7 |
+| — | Provedores de IA no MVP | **DECIDIDO: mock plugável** (`MockTranscriptionProvider`, `MockQuestionGenerationProvider`) atrás das interfaces; troca futura = novo bean + `app.ai.provider` |
+| — | E2E sem arquivo de vídeo | **DECIDIDO:** `devTranscriptText` só no perfil `dev` — cria stub de `VideoAsset` e alimenta a transcrição para teste ponta a ponta |
+| — | Publicação de questões de IA | **DECIDIDO (inegociável):** `AI_GENERATED` só chega a `PUBLISHED` após `APPROVED` por humano; `raw_ai_payload` nunca é sobrescrito na edição |
+| — | Dashboard demonstrativo anterior | **DECIDIDO:** resetado para dados reais da Fase 2; mocks de alunos/certificados/IA removidos da home autenticada |
+| — | Depoimentos e conteúdo social da landing | **DECIDIDO:** nenhum depoimento, nome de aluno ou número de negócio foi inventado; a seção existe como espaço reservado explícito até haver conteúdo real |
+| — | Preview de curso na landing pública | **DECIDIDO:** dado ilustrativo, rotulado como "Exemplo" na própria UI — a listagem pública real de cursos publicados depende de um endpoint público que ainda não existe (endpoint atual de cursos exige autenticação) |
+
 ## Limitações conhecidas do MVP (aceitas conscientemente)
 
 - Sem pagamento/assinatura — acesso é 100% manual (`Enrollment` criado por admin/instrutor).
@@ -89,3 +129,6 @@ Resumo das decisões arquiteturais registradas em detalhe nos respectivos docume
 | Data | Mudança |
 |---|---|
 | 2026-08-06 | Criação inicial junto com o restante da documentação técnica (PRD, ARCHITECTURE, DATABASE, API, AI_PIPELINE, SECURITY, ROADMAP, TEST_STRATEGY) |
+| 2026-08-06 | Adicionada seção "Decisões reais da Fase 1 (implementação)" após "ARQUITETURA APROVADA" e execução da Fase 1 (fundação, autenticação e RBAC) |
+| 2026-08-06 | Adicionada seção "Decisões do sistema visual (Design System)" após a implementação da identidade visual oficial da plataforma (paleta, tipografia, componentes, estrutura das três experiências) |
+| 2026-08-06 | Adicionada seção "Decisões reais da Fase 3" (vídeos, storage local, pipeline de IA mock, revisão humana, reset do dashboard demo) |
