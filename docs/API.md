@@ -141,23 +141,26 @@ Estrutura análoga a módulos: `GET`, `POST`, `PUT`, `DELETE`, `/reorder`, `/pub
 | Método | Rota | Papel | Descrição |
 |---|---|---|---|
 | GET | `/modules/{moduleId}/quiz` | conforme acesso | Detalhe do quiz do módulo |
-| POST | `/quizzes/{id}/questions` | SUPER_ADMIN, INSTRUCTOR dono | Cria questão manual (`origin = MANUAL`) |
-| PUT | `/questions/{id}` | SUPER_ADMIN, INSTRUCTOR dono | Edita questão (inclusive as geradas por IA, antes ou depois de aprovar) |
+| POST | `/modules/{moduleId}/quiz/questions` | SUPER_ADMIN, INSTRUCTOR dono | Cria questão manual (`origin = MANUAL`) |
+| PUT | `/questions/{id}/manual` | SUPER_ADMIN, INSTRUCTOR dono | Edita questão manual (4 opções / 1 correta) |
+| POST | `/questions/{id}/publish-manual` | SUPER_ADMIN, INSTRUCTOR dono | Publica questão manual |
+| PUT | `/questions/{id}` | SUPER_ADMIN, INSTRUCTOR dono | Edita questão (fluxo IA / revisão) |
 | POST | `/questions/{id}/approve` | SUPER_ADMIN, INSTRUCTOR dono | Aprova questão gerada por IA |
 | POST | `/questions/{id}/reject` | SUPER_ADMIN, INSTRUCTOR dono | Rejeita |
 | POST | `/questions/bulk-approve` | idem | Aprovação em massa |
 | DELETE | `/questions/{id}` | SUPER_ADMIN, INSTRUCTOR dono | Remove (regra de soft delete condicional, ver `DATABASE.md`) |
-| GET | `/quizzes/{id}/attempt` | STUDENT matriculado | Retorna questões publicadas para responder (sem `is_correct` exposto) |
+| POST | `/quizzes/{quizId}/publish` | SUPER_ADMIN, INSTRUCTOR dono | Publica o quiz do módulo |
+| GET | `/quizzes/{quizId}/take` | STUDENT matriculado | Questões publicadas para responder (sem `is_correct`) |
 
 ### 2.10 Tentativas (`/api/v1/quiz-attempts`)
 
 | Método | Rota | Papel | Descrição |
 |---|---|---|---|
 | POST | `/quizzes/{quizId}/attempts` | STUDENT matriculado | Inicia nova tentativa (valida `max_attempts`) |
+| GET | `/quizzes/{quizId}/attempts` | STUDENT matriculado | Histórico das próprias tentativas do quiz |
 | POST | `/quiz-attempts/{id}/answers` | STUDENT dono da tentativa | Registra resposta a uma questão |
 | POST | `/quiz-attempts/{id}/submit` | STUDENT dono | Finaliza e corrige deterministicamente no backend |
-| GET | `/quiz-attempts/{id}` | STUDENT dono, ou INSTRUCTOR/SUPER_ADMIN do curso | Detalhe (resultado, respostas, explicações conforme config do curso) |
-| GET | `/quiz-attempts` | STUDENT (próprias) / INSTRUCTOR (do curso) | Histórico |
+| GET | `/quiz-attempts/{id}` | STUDENT dono, ou INSTRUCTOR/SUPER_ADMIN do curso | Detalhe (resultado após submit) |
 
 ### 2.11 Certificados (`/api/v1/certificates`)
 

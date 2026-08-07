@@ -237,6 +237,69 @@ export interface LessonProgress {
   updatedAt: string;
 }
 
+export interface QuizDetail {
+  id: string | null;
+  moduleId: string;
+  title: string;
+  status: string;
+  passingScore: number | null;
+  maxAttempts: number | null;
+  publishedQuestionCount: number;
+  questions: QuestionStaff[];
+}
+
+export interface QuestionStaff {
+  id: string;
+  quizId: string;
+  lessonId: string;
+  statement: string;
+  explanation: string | null;
+  difficulty: string;
+  topic: string | null;
+  status: string;
+  origin: string;
+  orderIndex: number;
+  createdAt: string;
+  options: { id: string; text: string; correct: boolean; orderIndex: number }[];
+}
+
+export interface QuizTake {
+  quizId: string;
+  moduleId: string;
+  title: string;
+  maxAttempts: number | null;
+  attemptsUsed: number;
+  canStartNewAttempt: boolean;
+  inProgressAttemptId: string | null;
+  questions: {
+    id: string;
+    statement: string;
+    orderIndex: number;
+    options: { id: string; text: string; orderIndex: number }[];
+  }[];
+}
+
+export interface QuizAttempt {
+  id: string;
+  enrollmentId: string;
+  quizId: string;
+  attemptNumber: number;
+  status: string;
+  startedAt: string;
+  submittedAt: string | null;
+  score: number | null;
+  passed: boolean | null;
+  answers: {
+    questionId: string;
+    statement: string;
+    selectedOptionId: string | null;
+    selectedOptionText: string | null;
+    correct: boolean;
+    correctOptionId: string | null;
+    explanation: string | null;
+  }[];
+}
+
 export interface ApiErrorBody {
   type: string;
   title: string;

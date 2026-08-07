@@ -30,6 +30,7 @@ import { courseFormSchema, lessonFormSchema, moduleFormSchema } from "@/lib/vali
 import type { CourseFormInput, LessonFormInput, ModuleFormInput } from "@/lib/validation";
 import type { AiJob, Course, CourseModule, Lesson } from "@/lib/types";
 import { CourseEnrollmentsPanel } from "@/components/courses/course-enrollments-panel";
+import { ModuleQuizPanel } from "@/components/courses/module-quiz-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -426,8 +427,8 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
         {modules.length > 0 && (
           <div className="flex items-start gap-2.5 rounded-md border border-dashed border-border/70 px-3.5 py-2.5 text-xs text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0 text-accent" />
-            Vídeos (Fase 3) e exercícios (Fase 5) ainda não fazem parte do MVP — esta é apenas a
-            estrutura de módulos e aulas.
+            Em cada módulo você pode anexar vídeo às aulas e montar o exercício manual (4
+            alternativas, 1 correta). Alunos matriculados respondem em &quot;Meus cursos&quot;.
           </div>
         )}
 
@@ -500,6 +501,8 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
                       {module.description && (
                         <p className="text-sm text-muted-foreground">{module.description}</p>
                       )}
+
+                      {canManage && <ModuleQuizPanel module={module} />}
 
                       {module.lessons.length === 0 ? (
                         <p className="text-sm text-muted-foreground">Nenhuma aula neste módulo.</p>

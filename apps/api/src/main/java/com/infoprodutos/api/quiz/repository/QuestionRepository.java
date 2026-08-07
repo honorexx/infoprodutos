@@ -13,5 +13,9 @@ public interface QuestionRepository extends JpaRepository<Question, UUID> {
 
     List<Question> findByLessonIdAndDeletedAtIsNull(UUID lessonId);
 
+    List<Question> findByQuizIdAndDeletedAtIsNullOrderByOrderIndexAsc(UUID quizId);
+
     long countByAiGenerationJobIdAndDeletedAtIsNull(UUID jobId);
+
+    long countByQuizIdAndStatusAndDeletedAtIsNull(UUID quizId, com.infoprodutos.api.quiz.domain.QuestionStatus status);
 }

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, CheckCircle2, Circle, PlayCircle } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { StudentModuleQuiz } from "@/components/courses/student-module-quiz";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import type {
   Enrollment,
@@ -236,6 +237,12 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
                   Marcar como concluída
                 </Button>
               )}
+
+              {summary.modules
+                .filter((m) => m.lessons.some((l) => l.lessonId === selectedLesson.lessonId))
+                .map((m) => (
+                  <StudentModuleQuiz key={m.moduleId} moduleId={m.moduleId} />
+                ))}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">Nenhuma aula publicada neste curso.</p>

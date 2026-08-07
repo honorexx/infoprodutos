@@ -94,15 +94,15 @@ Critérios de aceite:
 - [x] Progresso do curso reflete a proporção de aulas publicadas concluídas (`GET .../progress/summary`).
 - [x] Regra de conclusão confirmada (90% OU manual) e coberta por testes unitários.
 
-## Fase 5 — Exercícios Manuais, Tentativas e Correção
+## Fase 5 — Exercícios Manuais, Tentativas e Correção ✅ CONCLUÍDA (2026-08-07)
 
 Escopo: `Quiz`, `Question`, `QuestionOption` (criação **manual** pelo professor, sem IA ainda); `QuizAttempt`, `StudentAnswer`; correção determinística; regra de nova tentativa conforme configuração do curso.
 
 Critérios de aceite:
-- Questão manual exige exatamente 4 alternativas e exatamente 1 correta (validado no backend, com teste cobrindo violação).
-- Tentativa finalizada é imutável (nenhum endpoint permite alterar resposta após submissão).
-- Nova tentativa respeita `max_attempts` do curso/quiz.
-- Pontuação calculada corretamente e coberta por testes com casos de borda (0%, 100%, parcial).
+- [x] Questão manual exige exatamente 4 alternativas e exatamente 1 correta (validado no backend, com teste cobrindo violação).
+- [x] Tentativa finalizada é imutável (nenhum endpoint permite alterar resposta após submissão).
+- [x] Nova tentativa respeita `max_attempts` do curso/quiz.
+- [x] Pontuação calculada corretamente e coberta por testes com casos de borda (0%, 100%, parcial).
 
 ## Fase 6 — Pipeline de IA (transcrição e geração)
 

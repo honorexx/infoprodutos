@@ -25,7 +25,7 @@ Este é o documento central de rastreabilidade de decisões técnicas. Cada entr
 | 8 | Todo `Quiz` de módulo publicado é obrigatório para certificado, ou há exercícios opcionais? | `PRD.md` §8 | Todos obrigatórios no MVP |
 | 9 | Metas numéricas de sucesso do produto (nenhuma foi fornecida) | `PRD.md` §9 | Sem meta fixada; métricas apenas observacionais no MVP |
 | 10 | "Despublicar" curso precisa distinguir "nunca publicado" de "já publicado antes"? | `DATABASE.md` §5.3 | Não distinguir no MVP |
-| 11 | `Quiz` é por módulo (agregando questões de várias aulas) ou por aula individual? | `DATABASE.md` §5.11 | Por módulo, com `Question.lesson_id` apontando à aula de origem |
+| 11 | `Quiz` é por módulo (agregando questões de várias aulas) ou por aula individual? | `DATABASE.md` §5.11 | **DECIDIDO na Fase 5:** por módulo, com `Question.lesson_id` apontando à aula de origem |
 | 12 | Histórico completo de mudanças de status de `Enrollment` além do audit log genérico é necessário? | `DATABASE.md` §5.14 | Audit log genérico é suficiente no MVP |
 | 13 | Fornecedor concreto de transcrição e de geração de questões (LLM) | `AI_PIPELINE.md` §3 | Não definido; interfaces abstratas permitem decidir depois sem impacto estrutural |
 | 14 | Geração parcial (menos questões que o solicitado) é aceita ou o job falha? | `AI_PIPELINE.md` §7 | Aceitar parcial, nunca gerar a mais |
@@ -126,6 +126,18 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | — | Quem matricula | **DECIDIDO:** `SUPER_ADMIN` ou `INSTRUCTOR` dono; aluno não se auto-matricula no MVP |
 | — | UI | **DECIDIDO:** painel de matrículas no construtor do curso; aluno em `/my-courses` + player com heartbeat |
 
+## Decisões reais da Fase 5 (exercícios manuais e tentativas — implementação, 2026-08-07)
+
+| # | Item | Resolução |
+|---|---|---|
+| Pergunta #11 | Quiz por módulo vs. por aula | **CONFIRMADO:** 1 quiz por módulo; `Question.lessonId` aponta a aula de origem |
+| — | Estrutura da questão manual | **DECIDIDO:** exatamente 4 alternativas e exatamente 1 correta (`QuestionStructureRules`) |
+| — | Correção | **DECIDIDO:** determinística no submit; `score = correct/total_published × 100` (2 casas); `passed` usa `quiz.passingScore` ou `course.minPassingScore` |
+| — | `max_attempts` | **DECIDIDO:** override no quiz; senão `course.maxQuizAttempts`; `null` = ilimitado |
+| — | Imutabilidade | **DECIDIDO:** após `GRADED`, `answers`/`submit` retornam 400 |
+| — | Gate | **DECIDIDO:** take/attempt exige matrícula `ACTIVE` (mesmo padrão da Fase 4) |
+| — | IA | **FORA DE ESCOPO nesta fase:** criação manual apenas; pipeline mock permanece para jobs existentes |
+
 ## Limitações conhecidas do MVP (aceitas conscientemente)
 
 - Sem pagamento/assinatura — acesso é 100% manual (`Enrollment` criado por admin/instrutor).
@@ -144,3 +156,4 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | 2026-08-06 | Adicionada seção "Decisões do sistema visual (Design System)" após a implementação da identidade visual oficial da plataforma (paleta, tipografia, componentes, estrutura das três experiências) |
 | 2026-08-06 | Adicionada seção "Decisões reais da Fase 3" (vídeos, storage local, pipeline de IA mock, revisão humana, reset do dashboard demo) |
 | 2026-08-07 | Adicionada seção "Decisões reais da Fase 4" (matrículas, progresso 90%/manual, gate de vídeo, área do aluno); pergunta #6 fechada |
+| 2026-08-07 | Adicionada seção "Decisões reais da Fase 5" (quiz manual, tentativas, score, max_attempts); pergunta #11 fechada |
