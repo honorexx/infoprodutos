@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:infoprodutos}
+    username: ${DB_USER:infoprodutos}
+    password: ${DB_PASSWORD:infoprodutos}
+  jpa:
+    show-sql: false
+
+app:
+  dev-seed:
+    enabled: ${DEV_SEED_ENABLED:true}
+
+logging:
+  level:
+    com.infoprodutos: DEBUG

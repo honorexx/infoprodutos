@@ -24,7 +24,9 @@ graph LR
   F8 --> F9[Fase 9<br/>Hardening, Testes e Auditoria]
 ```
 
-## Fase 0 — Fundação
+## Fase 0 — Fundação ✅ CONCLUÍDA (2026-08-06)
+
+> Implementada em conjunto com a Fase 1 abaixo, sob o rótulo único "Fase 1 — Fundação" no prompt de execução recebido após "ARQUITETURA APROVADA". Ver `DECISIONS.md` §"Decisões reais da Fase 1" para o detalhamento completo do que foi entregue, desvios do plano original e limitações conhecidas.
 
 **Objetivo:** preparar monorepo, ambiente local, esqueleto de projeto, sem funcionalidade de negócio.
 
@@ -44,16 +46,19 @@ Critérios de aceite:
 - Build de ambos os apps sem erros; nenhum teste quebrado (ainda que poucos existam nesta fase).
 - Nenhum segredo real versionado.
 
-## Fase 1 — Autenticação e Usuários
+## Fase 1 — Autenticação e Usuários ✅ CONCLUÍDA (2026-08-06)
 
 Escopo: entidades `User`, `Role`, `UserRole`; cadastro, login, logout, refresh, recuperação/alteração de senha; bloqueio lógico; RBAC básico (`@PreAuthorize`); `AuditLog` para ações de bloqueio/desbloqueio e mudança de papel.
 
 Critérios de aceite:
-- Cadastro e login funcionam ponta a ponta (web ↔ api ↔ banco).
-- Rotas protegidas retornam 401/403 corretamente para usuário não autenticado/sem papel adequado.
-- Senha nunca trafega em log nem é recuperável (apenas reset).
-- Bloqueio lógico de conta impede login sem apagar o usuário.
-- Testes automatizados cobrindo autenticação e autorização por papel (ver `TEST_STRATEGY.md`).
+- [x] Cadastro e login funcionam ponta a ponta (web ↔ api ↔ banco) — validado manualmente via smoke test com Postgres local (registro, login, `/auth/me`, listagem de usuários).
+- [x] Rotas protegidas retornam 401/403 corretamente para usuário não autenticado/sem papel adequado — validado via smoke test e `AuthorizationIT` (não executado neste sandbox por falta de Docker, mas escrito e compilado).
+- [x] Senha nunca trafega em log nem é recuperável (apenas reset) — hash BCrypt, fluxo de reset via token opaco de uso único.
+- [x] Bloqueio lógico de conta impede login sem apagar o usuário — `UserStatus.BLOCKED` + revogação de refresh tokens ativos ao bloquear.
+- [x] Testes automatizados cobrindo autenticação e autorização por papel — 20 testes unitários executados com sucesso (`JwtServiceTest`, `TokenHasherTest`, `AuthServiceTest`, `UserServiceTest`) + testes de integração (`AuthControllerIT`, `AuthorizationIT`) escritos com Testcontainers, não executados neste ambiente (sem Docker disponível).
+- [x] Frontend com páginas de login/cadastro, proteção de rota client-side e painel administrativo mínimo de usuários (bloquear/desbloquear, atribuir papel) — 19 testes de frontend (Vitest) executados com sucesso.
+
+Detalhes completos de implementação, arquivos alterados e limitações: ver `DECISIONS.md` §"Decisões reais da Fase 1" e o resumo final entregue ao final da Fase 1.
 
 ## Fase 2 — Cursos, Módulos e Aulas (estrutura curricular)
 
@@ -65,15 +70,19 @@ Critérios de aceite:
 - Curso em `DRAFT` não aparece na listagem pública/do aluno.
 - Testes de CRUD e de autorização por papel/posse.
 
-## Fase 3 — Vídeos e Materiais
+## Fase 3 — Vídeos, Materiais e Pipeline de IA (fluxo vertical) ✅ CONCLUÍDA (2026-08-06)
 
-Escopo: `VideoAsset`, `LessonMaterial`; abstração `VideoStorageProvider` com implementação local de dev; upload, status de upload/processamento, substituição de vídeo sem perder a aula; proteção de acesso (sem matrícula ainda implementada — usar checagem "é o dono/admin" nesta fase, já preparando o hook para checagem de matrícula na Fase 4).
+> Entregue conforme o prompt de execução do usuário ("VÍDEOS, TRANSCRIÇÃO E IA"), cobrindo o fluxo vertical: upload de vídeo → job assíncrono → transcrição → geração → validação → revisão humana. No ROADMAP original, partes deste escopo estavam nas Fases 3/6/7; a execução unificou o caminho feliz vertical sem chat genérico e sem publicação automática.
+
+Escopo: `VideoAsset`, `LessonMaterial`, storage local; `Transcript`/`TranscriptSegment`; `AiGenerationJob` + providers mock; `Question`/`QuestionOption`/`AiGeneratedQuestionReview`; painel de revisão.
 
 Critérios de aceite:
-- Vídeo enviado localmente é reproduzível apenas por usuário autorizado (dono do curso/admin) nesta fase.
-- Falha de upload é tratada e refletida no `upload_status`, sem quebrar a aula.
-- Substituir vídeo mantém o restante da aula intacto; vídeo antigo permanece rastreável no banco.
-- Nenhum binário de vídeo é gravado em coluna do PostgreSQL.
+- [x] Vídeo enviado localmente é reproduzível apenas por usuário autorizado (dono do curso/admin) nesta fase (URL assinada HMAC).
+- [x] Falha de upload é tratada e refletida no `upload_status`, sem quebrar a aula.
+- [x] Substituir vídeo mantém o restante da aula intacto; vídeo antigo permanece rastreável no banco.
+- [x] Nenhum binário de vídeo é gravado em coluna do PostgreSQL.
+- [x] Job assíncrono com idempotência; mock de provedores; validação estrutural; revisão/aprovação/publicação humana.
+- [x] E2E com `devTranscriptText` (perfil `dev`) validado ponta a ponta.
 
 ## Fase 4 — Matrículas e Progresso
 

@@ -1,0 +1,36 @@
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dados locais de banco (usados apenas para testes manuais fora do Docker)
+.localpg/
+
+# Storage local de vídeos/materiais (dev)
+apps/api/data/
+
+# --- Backend (apps/api) ---
+apps/api/target/
+apps/api/*.log
+apps/api/.env
+
+# --- Frontend (apps/web) ---
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/build/
+apps/web/.env
+apps/web/.env.local
+apps/web/.env*.local
+apps/web/*.tsbuildinfo
+apps/web/next-env.d.ts
+apps/web/coverage/
+
+# Segredos locais (nunca commitar; usar .env.example como referência)
+.env
+.env.local
+*.local.env
