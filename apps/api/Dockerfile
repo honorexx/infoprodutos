@@ -16,10 +16,16 @@ FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
 # Usuário não-root por segurança.
-RUN addgroup -S app && adduser -S app -G app
+RUN addgroup -S app && adduser -S app -G app \
+  && mkdir -p /app/data/videos /app/data/certificates \
+  && chown -R app:app /app/data
+
 USER app
 
-COPY --from=build /build/target/*.jar app.jar
+COPY --from=build --chown=app:app /build/target/*.jar app.jar
+
+ENV VIDEO_STORAGE_LOCAL_ROOT=/app/data/videos \
+    CERTIFICATE_STORAGE_LOCAL_ROOT=/app/data/certificates
 
 EXPOSE 8080
 # Render (e similares) injetam PORT; fallback SERVER_PORT / 8080.
