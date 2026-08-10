@@ -1,0 +1,10 @@
+# Evita upload gigante no `vercel deploy` a partir da raiz do monorepo
+.localpg.log
+data/
+docs/Photos/
+docs/preview.pdf
+**/.next/
+**/node_modules/
+**/target/
+**/.git/
+apps/api/

@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
+const isVercel = Boolean(process.env.VERCEL);
+
 const nextConfig: NextConfig = {
-  // Gera uma saída "standalone" para permitir uma imagem Docker enxuta,
-  // sem precisar copiar node_modules inteiro para o estágio final.
-  output: "standalone",
+  // Standalone só para Docker local/prod self-host. Na Vercel o runtime próprio quebra com isso.
+  ...(isVercel ? {} : { output: "standalone" as const }),
   // Sem isso, abrir o site pelo domínio do ngrok bloqueia JS/CSS do dev server
   // → página “apagada” e login em loading infinito.
   allowedDevOrigins: [
@@ -12,9 +13,11 @@ const nextConfig: NextConfig = {
     "*.ngrok-free.app",
     "*.ngrok.io",
   ],
-  // Página HTTPS (ngrok) não pode chamar http://localhost:8090 no browser
-  // (Private Network Access). Proxy same-origin → Spring local.
+  // Proxy local/ngrok: browser → same-origin /api/v1 → Spring. Na Vercel use NEXT_PUBLIC_API_URL absoluto.
   async rewrites() {
+    if (isVercel) {
+      return [];
+    }
     const apiOrigin =
       process.env.API_PROXY_ORIGIN?.replace(/\/$/, "") ?? "http://127.0.0.1:8090";
     return [
