@@ -1,6 +1,9 @@
 package com.infoprodutos.api.course;
 
 import com.infoprodutos.api.course.dto.AddInstructorRequest;
+import com.infoprodutos.api.course.dto.CoverUploadCompleteRequest;
+import com.infoprodutos.api.course.dto.CoverUploadInitRequest;
+import com.infoprodutos.api.course.dto.CoverUploadInitResponse;
 import com.infoprodutos.api.course.dto.CourseCreateRequest;
 import com.infoprodutos.api.course.dto.CourseResponse;
 import com.infoprodutos.api.course.dto.CourseSummaryResponse;
@@ -72,6 +75,24 @@ public class CourseController {
             @Valid @RequestBody CourseUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.ok(courseService.update(id, request, principal));
+    }
+
+    @PostMapping("/{id}/cover-upload-init")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'INSTRUCTOR')")
+    public CoverUploadInitResponse coverUploadInit(
+            @PathVariable UUID id,
+            @Valid @RequestBody CoverUploadInitRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        return courseService.initCoverUpload(id, request, principal);
+    }
+
+    @PostMapping("/{id}/cover-upload-complete")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'INSTRUCTOR')")
+    public CourseResponse coverUploadComplete(
+            @PathVariable UUID id,
+            @Valid @RequestBody CoverUploadCompleteRequest request,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        return courseService.completeCoverUpload(id, request, principal);
     }
 
     @PostMapping(path = "/{id}/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

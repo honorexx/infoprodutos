@@ -63,7 +63,14 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(corsProperties.getAllowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
+        // Multipart (FormData) + Bearer em upload cross-origin (Vercel → Render).
+        configuration.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Correlation-Id",
+                "Accept",
+                "Origin",
+                "X-Requested-With"));
         configuration.setExposedHeaders(List.of("X-Correlation-Id"));
         // Necessário para que o cookie httpOnly de refresh token seja enviado em chamadas cross-origin
         // (ex.: frontend em :3000 chamando a API em :8080 durante o desenvolvimento local).

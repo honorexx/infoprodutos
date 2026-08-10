@@ -155,10 +155,7 @@ public class VideoService {
     @Transactional
     public VideoAssetResponse uploadBinary(
             UUID videoId, MultipartFile file, MultipartFile thumbnail, CustomUserDetails principal) {
-        if (storageProvider.supportsDirectUpload()) {
-            throw new BadRequestException(
-                    "Upload multipart desabilitado: use o fluxo DIRECT (URLs assinadas do upload-init).");
-        }
+        // PROXY multipart ativo mesmo com R2 (browser pode não alcançar Cloudflare/R2).
         VideoAsset asset = findOrThrow(videoId);
         if (asset.getLessonId() == null) {
             throw new BadRequestException("Vídeo sem aula associada.");
@@ -201,6 +198,9 @@ public class VideoService {
         }
 
         asset.setUploadStatus(UploadStatus.UPLOADING);
+        if (storageProvider.supportsDirectUpload()) {
+            asset.setStorageProvider(StorageProviderType.S3_COMPATIBLE);
+        }
         videoAssetRepository.save(asset);
 
         try (InputStream in = file.getInputStream();
@@ -229,7 +229,11 @@ public class VideoService {
             asset.setThumbnailMimeType(thumbType);
             attachUploadedAsset(asset, lesson);
             auditService.record(principal.getId(), "VIDEO_UPLOADED", "VideoAsset", asset.getId(), null);
-            log.info("Vídeo {} associado à aula {} ({} bytes)", asset.getId(), lesson.getId(), asset.getSizeBytes());
+            log.info(
+                    "Vídeo {} (PROXY multipart) associado à aula {} ({} bytes)",
+                    asset.getId(),
+                    lesson.getId(),
+                    asset.getSizeBytes());
             return VideoAssetResponse.from(asset);
         } catch (BadRequestException e) {
             throw e;

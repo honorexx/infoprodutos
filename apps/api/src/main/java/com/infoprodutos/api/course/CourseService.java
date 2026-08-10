@@ -6,9 +6,13 @@ import com.infoprodutos.api.common.exception.BadRequestException;
 import com.infoprodutos.api.common.exception.ConflictException;
 import com.infoprodutos.api.common.exception.ForbiddenOperationException;
 import com.infoprodutos.api.common.exception.NotFoundException;
+import com.infoprodutos.api.config.S3StorageProperties;
 import com.infoprodutos.api.course.domain.Course;
 import com.infoprodutos.api.course.domain.CourseInstructor;
 import com.infoprodutos.api.course.domain.CourseStatus;
+import com.infoprodutos.api.course.dto.CoverUploadCompleteRequest;
+import com.infoprodutos.api.course.dto.CoverUploadInitRequest;
+import com.infoprodutos.api.course.dto.CoverUploadInitResponse;
 import com.infoprodutos.api.course.dto.CourseCreateRequest;
 import com.infoprodutos.api.course.dto.CourseResponse;
 import com.infoprodutos.api.course.dto.CourseSummaryResponse;
@@ -21,8 +25,10 @@ import com.infoprodutos.api.enrollment.repository.EnrollmentRepository;
 import com.infoprodutos.api.user.domain.RoleCode;
 import com.infoprodutos.api.user.domain.User;
 import com.infoprodutos.api.user.repository.UserRepository;
+import com.infoprodutos.api.video.storage.S3CompatibleVideoStorageProvider;
 import com.infoprodutos.api.video.storage.VideoStorageProvider;
 import java.io.InputStream;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +61,7 @@ public class CourseService {
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
     private final VideoStorageProvider storageProvider;
+    private final S3StorageProperties s3StorageProperties;
 
     @Transactional(readOnly = true)
     public Page<CourseSummaryResponse> list(Pageable pageable, CustomUserDetails principal, String query) {
@@ -234,7 +241,85 @@ public class CourseService {
     }
 
     @Transactional
+    public CoverUploadInitResponse initCoverUpload(
+            UUID courseId, CoverUploadInitRequest request, CustomUserDetails principal) {
+        Course course = findActiveOrThrow(courseId);
+        accessGuard.requireManageAccess(courseId, principal);
+
+        long size = request.sizeBytes() != null ? request.sizeBytes() : 0L;
+        if (size <= 0) {
+            throw new BadRequestException("Informe o tamanho da capa (sizeBytes).");
+        }
+        if (size > MAX_COVER_BYTES) {
+            throw new BadRequestException("Capa excede 5 MB. Envie uma imagem menor.");
+        }
+
+        String contentType = normalizeCoverContentType(request.contentType(), request.filename());
+        String filename =
+                request.filename() != null && !request.filename().isBlank()
+                        ? request.filename()
+                        : "cover.jpg";
+
+        if (!storageProvider.supportsDirectUpload()) {
+            return new CoverUploadInitResponse(
+                    "PROXY", "/api/v1/courses/" + courseId + "/cover", null, contentType);
+        }
+
+        String storageKey = storageProvider.allocateKey("courses/" + courseId + "/covers", filename);
+        Duration ttl = Duration.ofSeconds(
+                storageProvider instanceof S3CompatibleVideoStorageProvider s3
+                        ? s3.uploadUrlTtlSeconds()
+                        : s3StorageProperties.uploadUrlTtlSeconds());
+        var put = storageProvider.createPresignedPut(storageKey, contentType, ttl);
+        auditService.record(principal.getId(), "COURSE_COVER_UPLOAD_INIT", "Course", courseId, null);
+        return new CoverUploadInitResponse("DIRECT", put.uploadUrl(), storageKey, contentType);
+    }
+
+    @Transactional
+    public CourseResponse completeCoverUpload(
+            UUID courseId, CoverUploadCompleteRequest request, CustomUserDetails principal) {
+        Course course = findActiveOrThrow(courseId);
+        accessGuard.requireManageAccess(courseId, principal);
+
+        if (!storageProvider.supportsDirectUpload()) {
+            throw new BadRequestException("Storage local — use o upload multipart da capa.");
+        }
+
+        String prefix = "courses/" + courseId + "/covers/";
+        String key = request.storageKey().trim();
+        if (!key.startsWith(prefix)) {
+            throw new BadRequestException("storageKey inválida para este curso.");
+        }
+        if (!storageProvider.exists(key)) {
+            throw new BadRequestException(
+                    "Capa não encontrada no storage. Conclua o PUT antes do cover-upload-complete.");
+        }
+
+        String contentType = normalizeCoverContentType(request.contentType(), key);
+        String oldKey = course.getCoverImageUrl();
+        course.setCoverImageUrl(key);
+        course.setCoverMimeType(contentType);
+        courseRepository.saveAndFlush(course);
+
+        if (oldKey != null
+                && !oldKey.isBlank()
+                && !CourseCoverUrls.isExternalUrl(oldKey)
+                && !oldKey.equals(key)) {
+            try {
+                storageProvider.delete(oldKey);
+            } catch (Exception ignored) {
+                // best-effort
+            }
+        }
+
+        auditService.record(principal.getId(), "COURSE_COVER_UPLOADED", "Course", courseId, null);
+        Course reloaded = findActiveOrThrow(courseId);
+        return CourseResponse.from(reloaded, courseInstructorRepository.findByCourseId(courseId));
+    }
+
+    @Transactional
     public CourseResponse uploadCover(UUID courseId, MultipartFile file, CustomUserDetails principal) {
+        // PROXY multipart ativo mesmo com R2 (API grava no bucket server-side).
         Course course = findActiveOrThrow(courseId);
         accessGuard.requireManageAccess(courseId, principal);
 
@@ -245,27 +330,11 @@ public class CourseService {
             throw new BadRequestException("Capa excede 5 MB. Envie uma imagem menor.");
         }
 
-        String contentType = file.getContentType() != null ? file.getContentType().toLowerCase() : "";
-        String name = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
-        boolean ok = ALLOWED_COVER_MIME.contains(contentType)
-                || name.endsWith(".jpg")
-                || name.endsWith(".jpeg")
-                || name.endsWith(".png")
-                || name.endsWith(".webp");
-        if (!ok) {
-            throw new BadRequestException("Capa inválida. Use JPG, PNG ou WebP.");
-        }
-        if (!ALLOWED_COVER_MIME.contains(contentType)) {
-            if (name.endsWith(".png")) {
-                contentType = "image/png";
-            } else if (name.endsWith(".webp")) {
-                contentType = "image/webp";
-            } else {
-                contentType = "image/jpeg";
-            }
-        }
+        String contentType = normalizeCoverContentType(
+                file.getContentType(), file.getOriginalFilename());
 
         try (InputStream in = file.getInputStream()) {
+            String oldKey = course.getCoverImageUrl();
             var stored = storageProvider.store(
                     "courses/" + courseId + "/covers",
                     file.getOriginalFilename() != null ? file.getOriginalFilename() : "cover.jpg",
@@ -275,6 +344,16 @@ public class CourseService {
             course.setCoverImageUrl(stored.storageKey());
             course.setCoverMimeType(contentType);
             courseRepository.saveAndFlush(course);
+            if (oldKey != null
+                    && !oldKey.isBlank()
+                    && !CourseCoverUrls.isExternalUrl(oldKey)
+                    && !oldKey.equals(stored.storageKey())) {
+                try {
+                    storageProvider.delete(oldKey);
+                } catch (Exception ignored) {
+                    // best-effort
+                }
+            }
             auditService.record(principal.getId(), "COURSE_COVER_UPLOADED", "Course", courseId, null);
             Course reloaded = findActiveOrThrow(courseId);
             return CourseResponse.from(reloaded, courseInstructorRepository.findByCourseId(courseId));
@@ -285,6 +364,29 @@ public class CourseService {
                     "Não foi possível salvar a capa do curso: "
                             + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
+    }
+
+    private String normalizeCoverContentType(String contentType, String filename) {
+        String ct = contentType != null ? contentType.toLowerCase().trim() : "";
+        String name = filename != null ? filename.toLowerCase() : "";
+        boolean ok = ALLOWED_COVER_MIME.contains(ct)
+                || name.endsWith(".jpg")
+                || name.endsWith(".jpeg")
+                || name.endsWith(".png")
+                || name.endsWith(".webp");
+        if (!ok) {
+            throw new BadRequestException("Capa inválida. Use JPG, PNG ou WebP.");
+        }
+        if (ALLOWED_COVER_MIME.contains(ct)) {
+            return "image/jpg".equals(ct) ? "image/jpeg" : ct;
+        }
+        if (name.endsWith(".png")) {
+            return "image/png";
+        }
+        if (name.endsWith(".webp")) {
+            return "image/webp";
+        }
+        return "image/jpeg";
     }
 
     @Transactional(readOnly = true)

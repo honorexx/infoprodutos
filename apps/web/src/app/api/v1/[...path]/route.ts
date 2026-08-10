@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Uploads multipart (capa/thumb/vídeo PROXY) via este proxy. */
+export const maxDuration = 120;
 
 function upstreamBase(): string | null {
   const raw = process.env.API_UPSTREAM_URL?.replace(/\/$/, "");
@@ -38,7 +40,8 @@ async function proxy(request: NextRequest, pathSegments: string[]): Promise<Next
     method: request.method,
     headers,
     redirect: "manual",
-    signal: AbortSignal.timeout(12_000),
+    // Capas/thumbs/multipart: cold start Render + upload — 12s era curto demais.
+    signal: AbortSignal.timeout(120_000),
   };
   if (request.method !== "GET" && request.method !== "HEAD") {
     init.body = await request.arrayBuffer();

@@ -21,7 +21,7 @@ Sem R2 configurado, a API cai no modo `PROXY` (multipart na API). O front usa `N
 
 ### CORS do bucket (obrigatório)
 
-Em R2 → bucket → Settings → CORS:
+Em R2 → bucket → Settings → CORS (cole exatamente):
 
 ```json
 [
@@ -32,14 +32,24 @@ Em R2 → bucket → Settings → CORS:
       "http://localhost:3000"
     ],
     "AllowedMethods": ["GET", "PUT", "HEAD"],
-    "AllowedHeaders": ["*"],
+    "AllowedHeaders": ["Content-Type"],
     "ExposeHeaders": ["ETag", "Content-Type"],
     "MaxAgeSeconds": 3600
   }
 ]
 ```
 
+> Prefira `AllowedHeaders: ["Content-Type"]` (não `*`) — o browser envia esse header no PUT assinado.
+
 Bucket **privado** (sem acesso público). Leitura só via URL assinada.
+
+### Rede sem Cloudflare
+
+Se o provedor bloquear Cloudflare (`cloudflare.com`, `*.r2.cloudflarestorage.com`), o upload **DIRECT** do browser falha.
+O front cai automaticamente no **PROXY** (multipart → API no Render → R2 server-side).
+
+- Capas e thumbnails: devem funcionar via PROXY.
+- Vídeos longos (20+ min): PROXY pode estourar timeout/body; use **hotspot 4G/5G** ou outra rede com Cloudflare liberado para o caminho DIRECT.
 
 ## 2. Variáveis no Render (`infoprodutos-api`)
 

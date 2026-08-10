@@ -302,10 +302,55 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
     if (!course) return;
     setUploadingCover(true);
     try {
-      const form = new FormData();
-      form.append("file", file);
-      await apiUpload<Course>(`/courses/${course.id}/cover`, form);
-      toast.success("Capa do curso atualizada.");
+      // 1) Tenta DIRECT (R2). 2) Se a rede bloquear Cloudflare, PROXY multipart → Render.
+      let usedProxy = false;
+      try {
+        const init = await apiFetch<{
+          uploadMode: string;
+          uploadUrl: string | null;
+          storageKey: string | null;
+          contentType: string | null;
+        }>(`/courses/${course.id}/cover-upload-init`, {
+          method: "POST",
+          body: {
+            contentType: file.type || "image/jpeg",
+            filename: file.name,
+            sizeBytes: file.size,
+          },
+        });
+        if (init.uploadMode === "DIRECT" && init.uploadUrl && init.storageKey) {
+          const ct = init.contentType || file.type || "image/jpeg";
+          try {
+            await putPresigned(init.uploadUrl, file, ct);
+            await apiFetch(`/courses/${course.id}/cover-upload-complete`, {
+              method: "POST",
+              body: { storageKey: init.storageKey, contentType: ct },
+            });
+          } catch {
+            usedProxy = true;
+            const form = new FormData();
+            form.append("file", file);
+            await apiUpload<Course>(`/courses/${course.id}/cover`, form);
+          }
+        } else {
+          usedProxy = true;
+          const form = new FormData();
+          form.append("file", file);
+          const uploadPath = (init.uploadUrl || `/courses/${course.id}/cover`).replace(
+            /^\/api\/v1/,
+            "",
+          );
+          await apiUpload<Course>(uploadPath, form);
+        }
+      } catch {
+        usedProxy = true;
+        const form = new FormData();
+        form.append("file", file);
+        await apiUpload<Course>(`/courses/${course.id}/cover`, form);
+      }
+      toast.success(
+        usedProxy ? "Capa do curso atualizada (via API)." : "Capa do curso atualizada.",
+      );
       await load();
     } catch (err) {
       toast.error(
@@ -333,26 +378,35 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
         },
       });
 
+      const runProxyUpload = async () => {
+        const form = new FormData();
+        form.append("file", payload.video);
+        form.append("thumbnail", payload.thumbnail);
+        const uploadPath = `/videos/${init.videoAssetId}/upload`;
+        // PROXY: Render (API_UPLOAD_BASE_URL); fallback same-origin se CF bloquear.
+        await apiUpload(uploadPath, form, "POST", { onProgress: setUploadProgress });
+      };
+
       if (init.uploadMode === "DIRECT") {
         if (!init.videoUploadUrl || !init.thumbnailUploadUrl) {
           throw new Error("API não retornou URLs assinadas de upload.");
         }
         const videoCt = init.videoContentType || payload.video.type || "video/mp4";
         const thumbCt = init.thumbnailContentType || payload.thumbnail.type || "image/jpeg";
-        // Thumbnail first (pequena), depois vídeo com progresso 0–100.
-        setUploadProgress(1);
-        await putPresigned(init.thumbnailUploadUrl, payload.thumbnail, thumbCt);
-        await putPresigned(init.videoUploadUrl, payload.video, videoCt, setUploadProgress);
+        try {
+          setUploadProgress(1);
+          await putPresigned(init.thumbnailUploadUrl, payload.thumbnail, thumbCt);
+          await putPresigned(init.videoUploadUrl, payload.video, videoCt, setUploadProgress);
+        } catch {
+          // Rede sem Cloudflare/R2 → multipart na API (Render grava no R2).
+          toast.message("Upload direto indisponível nesta rede. Enviando via API…");
+          await runProxyUpload();
+        }
       } else {
         if (!init.uploadUrl) {
           throw new Error("API não retornou URL de upload.");
         }
-        const form = new FormData();
-        form.append("file", payload.video);
-        form.append("thumbnail", payload.thumbnail);
-        const uploadPath = init.uploadUrl.replace(/^\/api\/v1/, "");
-        // PROXY: usa API_UPLOAD_BASE_URL (Render) — evita body/timeout da Vercel.
-        await apiUpload(uploadPath, form, "POST", { onProgress: setUploadProgress });
+        await runProxyUpload();
       }
 
       await apiFetch(`/videos/${init.videoAssetId}/upload-complete`, { method: "POST" });
@@ -360,11 +414,15 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
       setVideoUploadLesson(null);
       await load();
     } catch (err) {
-      toast.error(
+      const detail =
         err instanceof ApiError
           ? (err.body?.detail ?? err.message)
-          : "Falha no upload do vídeo.",
-      );
+          : "Falha no upload do vídeo.";
+      const hint =
+        payload.video.size > 80 * 1024 * 1024
+          ? " Vídeos longos pedem rede com acesso ao Cloudflare (ex.: hotspot 4G)."
+          : "";
+      toast.error(`${detail}${hint}`);
     } finally {
       setUploadingLessonId(null);
       setUploadProgress(null);

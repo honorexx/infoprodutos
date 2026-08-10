@@ -84,6 +84,7 @@ export function putPresigned(
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
     xhr.setRequestHeader("Content-Type", contentType);
+    xhr.timeout = 0;
     xhr.upload.onprogress = (event) => {
       if (!onProgress || !event.lengthComputable || event.total <= 0) return;
       onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
@@ -96,22 +97,53 @@ export function putPresigned(
       }
       reject(new ApiError(xhr.status, null, `Falha no upload direto (${xhr.status}).`));
     };
-    xhr.onerror = () => reject(new ApiError(0, null, "Falha de rede no upload direto."));
+    xhr.onerror = () =>
+      reject(
+        new ApiError(
+          0,
+          null,
+          "Falha de rede no upload direto (R2/Cloudflare inacessível nesta rede?).",
+        ),
+      );
     xhr.onabort = () => reject(new ApiError(0, null, "Upload cancelado."));
     xhr.send(body);
   });
 }
 
-/** Upload multipart (não define Content-Type — o browser envia o boundary). */
+/**
+ * Multipart via API_UPLOAD_BASE_URL (Render). Se a rede bloquear Cloudflare/Render,
+ * tenta de novo pelo proxy same-origin (/api/v1) — útil para capas/thumbs pequenas.
+ */
 export async function apiUpload<T>(
   path: string,
   formData: FormData,
   method: "POST" | "PUT" = "POST",
-  options?: { baseUrl?: string; onProgress?: (pct: number) => void },
+  options?: { baseUrl?: string; onProgress?: (pct: number) => void; allowSameOriginFallback?: boolean },
 ): Promise<T> {
-  const base = options?.baseUrl ?? API_UPLOAD_BASE_URL;
-  const onProgress = options?.onProgress;
+  const preferred = options?.baseUrl ?? API_UPLOAD_BASE_URL;
+  try {
+    return await apiUploadOnce<T>(path, formData, method, preferred, options?.onProgress);
+  } catch (err) {
+    const allowFallback = options?.allowSameOriginFallback !== false;
+    const sameOrigin = API_BASE_URL;
+    const canFallback =
+      allowFallback &&
+      preferred !== sameOrigin &&
+      !preferred.startsWith(sameOrigin) &&
+      err instanceof ApiError &&
+      (err.status === 0 || err.status === 502 || err.status === 503 || err.status === 504);
+    if (!canFallback) throw err;
+    return apiUploadOnce<T>(path, formData, method, sameOrigin, options?.onProgress);
+  }
+}
 
+async function apiUploadOnce<T>(
+  path: string,
+  formData: FormData,
+  method: "POST" | "PUT",
+  base: string,
+  onProgress?: (pct: number) => void,
+): Promise<T> {
   const doXhr = (token: string | null): Promise<Response> =>
     new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();

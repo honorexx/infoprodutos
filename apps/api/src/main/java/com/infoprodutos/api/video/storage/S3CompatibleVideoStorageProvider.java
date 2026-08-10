@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -54,13 +56,21 @@ public class S3CompatibleVideoStorageProvider implements VideoStorageProvider, A
         Region region = Region.of(properties.region());
         URI endpoint = URI.create(properties.endpoint());
 
-        S3Configuration s3Config = S3Configuration.builder().pathStyleAccessEnabled(true).build();
+        S3Configuration s3Config = S3Configuration.builder()
+                .pathStyleAccessEnabled(true)
+                // R2 não gosta de Transfer-Encoding: chunked do SDK.
+                .chunkedEncodingEnabled(false)
+                .build();
 
+        // AWS SDK 2.30+ assina checksum CRC32 por default — R2 rejeita PUT do browser
+        // (header x-amz-checksum-* não enviado). WHEN_REQUIRED = compatível com R2.
         this.s3 = S3Client.builder()
                 .endpointOverride(endpoint)
                 .credentialsProvider(credentialsProvider)
                 .region(region)
                 .serviceConfiguration(s3Config)
+                .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
+                .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
                 .build();
 
         this.presigner = S3Presigner.builder()
@@ -71,7 +81,7 @@ public class S3CompatibleVideoStorageProvider implements VideoStorageProvider, A
                 .build();
 
         log.info(
-                "Video storage S3-compatible ativo: bucket={} endpoint={}",
+                "Video storage S3-compatible ativo: bucket={} endpoint={} (checksum=WHEN_REQUIRED)",
                 properties.bucket(),
                 properties.endpoint());
     }

@@ -74,7 +74,9 @@ class CourseServiceTest {
                 accessGuard,
                 auditService,
                 new ObjectMapper(),
-                storageProvider);
+                storageProvider,
+                new com.infoprodutos.api.config.S3StorageProperties(
+                        false, "", "auto", "", "", "", "", 3600, 300));
     }
 
     @Test
