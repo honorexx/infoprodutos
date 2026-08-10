@@ -1,14 +1,44 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:infoprodutos}
+    url: jdbc:postgresql://${DB_HOST:127.0.0.1}:${DB_PORT:5544}/${DB_NAME:infoprodutos}
     username: ${DB_USER:infoprodutos}
     password: ${DB_PASSWORD:infoprodutos}
   jpa:
     show-sql: false
 
+server:
+  # Alinhado ao front local (apps/web → :8090). Override com SERVER_PORT se precisar.
+  port: ${SERVER_PORT:8090}
+
 app:
+  jwt:
+    # Segredo só para perfil local/dev — nunca use em produção. Override com JWT_SECRET.
+    secret: ${JWT_SECRET:dev-only-secret-troque-por-um-valor-aleatorio-de-32-bytes-ou-mais}
+  api:
+    public-base-url: ${API_PUBLIC_BASE_URL:http://localhost:8090}
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  cookie:
+    secure: ${COOKIE_SECURE:false}
+  # Relativo → sempre <raiz-do-monorepo>/data/videos (ver LocalVideoStorageProvider).
+  video-storage:
+    local-root: ${VIDEO_STORAGE_LOCAL_ROOT:./data/videos}
+  certificate:
+    storage-local-root: ${CERTIFICATE_STORAGE_LOCAL_ROOT:./data/certificates}
+  # Contas locais documentadas — só ativas com profile "dev" (nunca em prod).
+  # admin@dev.local / DevAdmin123!
+  # instrutor@dev.local / DevInstructor123!
+  # aluno@dev.local / DevStudent123!
   dev-seed:
     enabled: ${DEV_SEED_ENABLED:true}
+    admin-email: ${DEV_SEED_ADMIN_EMAIL:admin@dev.local}
+    admin-password: ${DEV_SEED_ADMIN_PASSWORD:DevAdmin123!}
+    instructor-email: ${DEV_SEED_INSTRUCTOR_EMAIL:instrutor@dev.local}
+    instructor-password: ${DEV_SEED_INSTRUCTOR_PASSWORD:DevInstructor123!}
+    student-email: ${DEV_SEED_STUDENT_EMAIL:aluno@dev.local}
+    student-password: ${DEV_SEED_STUDENT_PASSWORD:DevStudent123!}
 
 logging:
   level:

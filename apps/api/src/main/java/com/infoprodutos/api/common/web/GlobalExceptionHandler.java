@@ -13,8 +13,12 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 /**
  * Ponto único de tratamento de erros da API. Toda resposta de erro segue o
@@ -87,6 +91,22 @@ public class GlobalExceptionHandler {
                 "access-denied",
                 "Acesso negado",
                 "Você não tem permissão para executar esta ação.",
+                request);
+    }
+
+    @ExceptionHandler({
+        MultipartException.class,
+        MaxUploadSizeExceededException.class,
+        MissingServletRequestPartException.class,
+        MissingServletRequestParameterException.class
+    })
+    public ResponseEntity<ErrorResponse> handleMultipart(Exception ex, HttpServletRequest request) {
+        log.warn("Falha no upload multipart: {}", ex.getMessage());
+        return build(
+                HttpStatus.BAD_REQUEST,
+                "multipart-error",
+                "Upload inválido",
+                "Envie o arquivo no campo correto (multipart). Verifique o formato e o tamanho.",
                 request);
     }
 

@@ -101,7 +101,7 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | — | Combinação tipográfica | **DECIDIDO:** Fraunces (heading) + Public Sans (interface) + Geist Mono (código), via `next/font/google` |
 | — | Identidade cromática oficial (v1, 2026-08-07) | **INEGOCIÁVEL:** navy `#040A16` + gold champagne `#BA9364`. Distribuição ~80% navy / 15% texto / 5% dourado. HEX da paleta não podem ser reinterpretados sem nova decisão explícita |
 | — | Tema claro legado (off-white + verde) | **SUBSTITUÍDO** pela v1 navy+gold; app é dark-first único |
-| — | Itens de menu ainda não implementados | **ATUALIZADO:** Configurações permanece "Em breve". **Meus certificados** é rota real (STUDENT) |
+| — | Itens de menu ainda não implementados | **ATUALIZADO:** **Configurações** (`/settings`) é rota real (perfil + troca de senha via `POST /auth/password/change`). **Meus certificados** é rota real (STUDENT) |
 | — | Métricas do dashboard sem dado real | **DECIDIDO:** placeholders explícitos; nunca número inventado |
 
 ## Decisões reais da Fase 3 (vídeos + IA — implementação, 2026-08-06)
@@ -162,7 +162,7 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 
 ## Limitações conhecidas do MVP (aceitas conscientemente)
 
-- Sem pagamento/assinatura — acesso é 100% manual (`Enrollment` criado por admin/instrutor).
+- Pagamento: compra avulsa Mercado Pago (Pix + cartão) por **curso** ou **pacote** multi-curso; webhook libera `Enrollment`. Grant manual admin/instrutor permanece. Sem assinatura recorrente.
 - Sem fila de mensageria dedicada — throughput de IA limitado à capacidade de uma instância com `@Async` (mitigável, não implementado no MVP).
 - Sem multi-tenancy — uma instalação serve uma única organização/marca.
 - Sem apps mobile nativos — apenas web responsivo.
@@ -179,5 +179,6 @@ Escopo: exclusivamente visual/UX (`apps/web`), sem alteração de regras de neg�
 | 2026-08-06 | Adicionada seção "Decisões reais da Fase 3" (vídeos, storage local, pipeline de IA mock, revisão humana, reset do dashboard demo) |
 | 2026-08-07 | Adicionada seção "Decisões reais da Fase 4" (matrículas, progresso 90%/manual, gate de vídeo, área do aluno); pergunta #6 fechada |
 | 2026-08-07 | Adicionada seção "Decisões reais da Fase 5" (quiz manual, tentativas, score, max_attempts); pergunta #11 fechada |
+| 2026-08-07 | Pagamento Mercado Pago (curso + pacotes); grant via webhook; mock local sem `MP_ACCESS_TOKEN` |
 | 2026-08-07 | Official Brand Color System — v1 (navy `#040A16` + gold `#BA9364`); `DESIGN_SYSTEM.md` reescrito; paleta anterior off-white/verde aposentada |
 | 2026-08-07 | Fase 6 fechada (resume, stuck recovery SKIP LOCKED, testes idempotência/aprovação); Fase 2 marcada concluída no ROADMAP |

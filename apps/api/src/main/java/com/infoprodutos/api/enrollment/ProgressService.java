@@ -18,6 +18,7 @@ import com.infoprodutos.api.enrollment.domain.LessonProgress;
 import com.infoprodutos.api.enrollment.domain.LessonProgressStatus;
 import com.infoprodutos.api.enrollment.dto.LessonProgressResponse;
 import com.infoprodutos.api.enrollment.dto.ProgressHeartbeatRequest;
+import com.infoprodutos.api.course.CourseCoverUrls;
 import com.infoprodutos.api.enrollment.dto.ProgressSummaryResponse;
 import com.infoprodutos.api.enrollment.repository.LessonProgressRepository;
 import com.infoprodutos.api.security.CustomUserDetails;
@@ -175,6 +176,7 @@ public class ProgressService {
                 enrollment.getId().toString(),
                 courseId.toString(),
                 enrollment.getCourse().getTitle(),
+                CourseCoverUrls.resolveForApi(enrollment.getCourse()),
                 enrollment.getStatus().name(),
                 totalLessons,
                 completedLessons,

@@ -17,7 +17,8 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
-  Sparkles,
+  Cpu,
+  ImagePlus,
   Trash2,
   Video,
 } from "lucide-react";
@@ -26,11 +27,16 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, apiUpload, ApiError } from "@/lib/api-client";
+import { ApiImage } from "@/components/ui/api-image";
 import { courseFormSchema, lessonFormSchema, moduleFormSchema } from "@/lib/validation";
 import type { CourseFormInput, LessonFormInput, ModuleFormInput } from "@/lib/validation";
 import type { AiJob, Course, CourseModule, Lesson } from "@/lib/types";
 import { CourseEnrollmentsPanel } from "@/components/courses/course-enrollments-panel";
 import { ModuleQuizPanel } from "@/components/courses/module-quiz-panel";
+import {
+  VideoUploadDialog,
+  type VideoUploadPayload,
+} from "@/components/courses/video-upload-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,6 +85,9 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
   const [pending, setPending] = useState(false);
   const [collapsedModules, setCollapsedModules] = useState<Record<string, boolean>>({});
   const [uploadingLessonId, setUploadingLessonId] = useState<string | null>(null);
+  const [videoUploadLesson, setVideoUploadLesson] = useState<Lesson | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [thumbnailLessonId, setThumbnailLessonId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -141,6 +150,7 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
       title: course.title,
       description: course.description ?? "",
       workloadHours: course.workloadHours != null ? String(course.workloadHours) : "",
+      priceReais: ((course.priceCents ?? 0) / 100).toFixed(2),
     });
     setEditOpen(true);
   }
@@ -155,6 +165,7 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
           description: data.description || null,
           coverImageUrl: course.coverImageUrl,
           workloadHours: Number(data.workloadHours),
+          priceCents: Math.round(Number(data.priceReais) * 100),
           minCompletionPercentage: course.minCompletionPercentage,
           minPassingScore: course.minPassingScore,
           certificateEnabled: course.certificateEnabled,
@@ -280,7 +291,25 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
     }
   }
 
-  async function uploadLessonVideo(lesson: Lesson, file: File) {
+  async function uploadCourseCover(file: File) {
+    if (!course) return;
+    setUploadingCover(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      await apiUpload<Course>(`/courses/${course.id}/cover`, form);
+      toast.success("Capa do curso atualizada.");
+      await load();
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? (err.body?.detail ?? err.message) : "Falha ao enviar a capa.",
+      );
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
+  async function uploadLessonVideo(lesson: Lesson, payload: VideoUploadPayload) {
     setUploadingLessonId(lesson.id);
     try {
       const init = await apiFetch<{ videoAssetId: string; uploadUrl: string }>("/videos/upload-init", {
@@ -288,16 +317,45 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
         body: { lessonId: lesson.id },
       });
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", payload.video);
+      form.append("thumbnail", payload.thumbnail);
       const uploadPath = init.uploadUrl.replace(/^\/api\/v1/, "");
       await apiUpload(uploadPath, form);
       await apiFetch(`/videos/${init.videoAssetId}/upload-complete`, { method: "POST" });
-      toast.success("Vídeo associado à aula");
+      toast.success("Vídeo e thumbnail associados à aula");
+      setVideoUploadLesson(null);
       await load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Falha no upload do vídeo.");
+      toast.error(
+        err instanceof ApiError
+          ? (err.body?.detail ?? err.message)
+          : "Falha no upload do vídeo.",
+      );
     } finally {
       setUploadingLessonId(null);
+    }
+  }
+
+  async function uploadLessonThumbnail(lesson: Lesson, file: File) {
+    if (!lesson.currentVideoAssetId) {
+      toast.error("Envie o vídeo da aula antes da thumbnail.");
+      return;
+    }
+    setThumbnailLessonId(lesson.id);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      await apiUpload(`/videos/${lesson.currentVideoAssetId}/thumbnail`, form);
+      toast.success("Thumbnail da aula atualizada. Ela aparece como capa do player.");
+      await load();
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? (err.body?.detail ?? err.message)
+          : "Falha ao enviar a thumbnail.",
+      );
+    } finally {
+      setThumbnailLessonId(null);
     }
   }
 
@@ -323,7 +381,7 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
 
   if (isLoading || !course) {
     return (
-      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 p-6 sm:p-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-4 sm:p-6 lg:p-8">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="h-40 w-full" />
@@ -334,24 +392,63 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 p-6 sm:p-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <Button variant="ghost" size="sm" className="w-fit gap-1.5 text-muted-foreground" onClick={() => router.push("/courses")}>
         <ArrowLeft className="size-4" />
         Voltar para cursos
       </Button>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 border-b border-border pb-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="font-heading text-2xl font-medium tracking-tight sm:text-3xl">{course.title}</h1>
-              <StatusBadge status={course.status} />
+          <div className="flex min-w-0 flex-1 gap-4">
+            <div className="relative hidden h-24 w-40 shrink-0 overflow-hidden rounded-md border border-border bg-navy-900 sm:block">
+              <ApiImage
+                src={course.coverImageUrl}
+                alt=""
+                className="absolute inset-0 size-full object-cover"
+                fallbackClassName="absolute inset-0 bg-gradient-to-br from-navy-800 to-navy-950"
+              />
             </div>
-            <p className="text-sm text-muted-foreground">
-              /{course.slug} · por {course.createdByName}
-              {course.workloadHours ? ` · ${course.workloadHours}h` : ""}
-              {` · ${modules.length} ${modules.length === 1 ? "módulo" : "módulos"} · ${totalLessons} ${totalLessons === 1 ? "aula" : "aulas"}`}
-            </p>
+            <div className="min-w-0 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="font-heading text-2xl font-medium tracking-tight sm:text-3xl">
+                  {course.title}
+                </h1>
+                <StatusBadge status={course.status} />
+              </div>
+              <p className="font-mono text-xs text-muted-foreground">
+                /{course.slug} · {course.createdByName}
+                {course.workloadHours ? ` · ${course.workloadHours}h` : ""}
+                {` · ${modules.length} mód. · ${totalLessons} aulas`}
+              </p>
+              {canManage && (
+                <div className="pt-1">
+                  <label className="inline-flex cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                      className="sr-only"
+                      disabled={uploadingCover}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (file) void uploadCourseCover(file);
+                      }}
+                    />
+                    <span className="text-xs font-medium text-primary hover:text-primary-hover">
+                      {uploadingCover
+                        ? "Enviando capa…"
+                        : course.coverImageUrl
+                          ? "Trocar capa do curso"
+                          : "Adicionar capa do curso"}
+                    </span>
+                  </label>
+                  <p className="mt-0.5 text-[11px] text-subtle-foreground">
+                    JPG, PNG ou WebP · aparece no dashboard e em Meus cursos
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
           {canManage && (
             <div className="flex flex-wrap gap-2">
@@ -437,12 +534,12 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
             Nenhum módulo criado ainda.
           </div>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-2">
             {modules.map((module, moduleIndex) => {
               const collapsed = collapsedModules[module.id];
               return (
-                <li key={module.id} className="rounded-lg border border-border/70 bg-card">
-                  <div className="flex items-center justify-between gap-2 px-4 py-3">
+                <li key={module.id} className="rounded-md border border-border bg-surface">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2.5">
                     <button
                       type="button"
                       onClick={() => toggleModule(module.id)}
@@ -510,6 +607,17 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
                         <ul className="flex flex-col divide-y divide-border/70 rounded-md border border-border/70">
                           {module.lessons.map((lesson, lessonIndex) => (
                             <li key={lesson.id} className="flex items-center justify-between gap-2 px-3 py-2.5">
+                              <input
+                                id={`lesson-thumb-${lesson.id}`}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                                className="sr-only"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  e.target.value = "";
+                                  if (file) void uploadLessonThumbnail(lesson, file);
+                                }}
+                              />
                               <div className="flex min-w-0 flex-wrap items-center gap-2">
                                 <span className="truncate text-sm font-medium">{lesson.title}</span>
                                 <StatusBadge status={lesson.status} />
@@ -553,24 +661,31 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
                                       <DropdownMenuItem
                                         onSelect={(e) => {
                                           e.preventDefault();
-                                          const input = document.createElement("input");
-                                          input.type = "file";
-                                          input.accept = "video/*";
-                                          input.onchange = () => {
-                                            const file = input.files?.[0];
-                                            if (file) void uploadLessonVideo(lesson, file);
-                                          };
-                                          input.click();
+                                          setVideoUploadLesson(lesson);
                                         }}
                                       >
                                         <Video className="size-3.5" />
                                         {lesson.currentVideoAssetId ? "Substituir vídeo" : "Enviar vídeo"}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
+                                        disabled={!lesson.currentVideoAssetId || thumbnailLessonId === lesson.id}
+                                        onSelect={(e) => {
+                                          e.preventDefault();
+                                          document
+                                            .getElementById(`lesson-thumb-${lesson.id}`)
+                                            ?.click();
+                                        }}
+                                      >
+                                        <ImagePlus className="size-3.5" />
+                                        {thumbnailLessonId === lesson.id
+                                          ? "Enviando thumbnail…"
+                                          : "Definir thumbnail da aula"}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
                                         disabled={pending || !lesson.currentVideoAssetId}
                                         onClick={() => void requestAiGeneration(lesson)}
                                       >
-                                        <Sparkles className="size-3.5" />
+                                        <Cpu className="size-3.5" />
                                         Gerar exercícios com IA
                                       </DropdownMenuItem>
                                       {lesson.status === "DRAFT" && (
@@ -687,6 +802,20 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
               <Label htmlFor="edit-workload">Carga horária (obrigatória)</Label>
               <Input id="edit-workload" type="number" min={0.5} step="0.5" required {...editForm.register("workloadHours")} />
             </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-price">Preço (R$)</Label>
+              <Input
+                id="edit-price"
+                type="number"
+                min={0}
+                step="0.01"
+                required
+                {...editForm.register("priceReais")}
+              />
+              {editForm.formState.errors.priceReais && (
+                <p className="text-sm text-destructive">{editForm.formState.errors.priceReais.message}</p>
+              )}
+            </div>
             <DialogFooter>
               <Button type="submit" disabled={editForm.formState.isSubmitting}>
                 Salvar
@@ -695,6 +824,20 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
           </form>
         </DialogContent>
       </Dialog>
+
+      <VideoUploadDialog
+        open={videoUploadLesson != null}
+        onOpenChange={(open) => {
+          if (!open) setVideoUploadLesson(null);
+        }}
+        lessonTitle={videoUploadLesson?.title ?? ""}
+        replacing={Boolean(videoUploadLesson?.currentVideoAssetId)}
+        pending={videoUploadLesson != null && uploadingLessonId === videoUploadLesson.id}
+        onSubmit={async (payload) => {
+          if (!videoUploadLesson) return;
+          await uploadLessonVideo(videoUploadLesson, payload);
+        }}
+      />
     </div>
   );
 }

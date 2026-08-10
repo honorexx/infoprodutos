@@ -52,6 +52,8 @@ describe("CoursesPage", () => {
           title: "Curso de Java",
           slug: "curso-de-java",
           coverImageUrl: null,
+          priceCents: 0,
+          currency: "BRL",
           workloadHours: 10,
           status: "DRAFT",
           createdByName: "Professor Teste",
@@ -109,6 +111,9 @@ describe("CoursesPage", () => {
     await user.click(screen.getByRole("button", { name: /novo curso/i }));
     await user.type(screen.getByLabelText("Título"), "Curso Novo");
     await user.type(screen.getByLabelText(/carga horária/i), "10");
+    const price = screen.getByLabelText(/preço/i);
+    await user.clear(price);
+    await user.type(price, "497");
     await user.click(screen.getByRole("button", { name: /^criar curso$/i }));
 
     await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/courses/new-course-id"));
@@ -116,7 +121,7 @@ describe("CoursesPage", () => {
       "/courses",
       expect.objectContaining({
         method: "POST",
-        body: expect.objectContaining({ title: "Curso Novo", workloadHours: 10 }),
+        body: expect.objectContaining({ title: "Curso Novo", workloadHours: 10, priceCents: 49700 }),
       }),
     );
   });

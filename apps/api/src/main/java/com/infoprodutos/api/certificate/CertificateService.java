@@ -17,6 +17,7 @@ import com.infoprodutos.api.enrollment.EnrollmentService;
 import com.infoprodutos.api.enrollment.domain.Enrollment;
 import com.infoprodutos.api.enrollment.domain.EnrollmentStatus;
 import com.infoprodutos.api.enrollment.repository.EnrollmentRepository;
+import com.infoprodutos.api.notification.NotificationService;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.user.domain.RoleCode;
 import java.io.IOException;
@@ -50,6 +51,7 @@ public class CertificateService {
     private final CertificatePdfGenerator pdfGenerator;
     private final CertificateProperties properties;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     @Transactional
     public Enrollment completeCourse(UUID enrollmentId, CustomUserDetails principal) {
@@ -106,6 +108,8 @@ public class CertificateService {
         certificate = certificateRepository.save(certificate);
 
         auditService.record(principal.getId(), "CERTIFICATE_ISSUED", "Certificate", certificate.getId(), null);
+        notificationService.notifyCertificateIssued(
+                enrollment.getStudent(), enrollment.getCourse().getTitle(), certificate.getId());
         return CertificateResponse.from(certificate);
     }
 

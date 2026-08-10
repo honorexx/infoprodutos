@@ -7,7 +7,7 @@ Nenhuma fase abaixo será iniciada até o recebimento explícito de **"ARQUITETU
 
 ## Fora do escopo inicial (não implementar no MVP)
 
-Aplicativo móvel; rede social; chat entre alunos; lives; marketplace de professores; programa de afiliados; gamificação complexa; pagamento e assinatura automática; integração automática com Meta Ads/Google Ads; tutor de IA conversacional; fine-tuning; treinamento de modelo próprio; publicação automática de questões sem revisão. A arquitetura deve permitir evolução para estes itens no futuro, mas nenhum deles é construído especulativamente agora.
+Aplicativo móvel; rede social; chat entre alunos; lives; marketplace de professores; programa de afiliados; gamificação complexa; assinatura recorrente (o produto hoje usa compra avulsa Mercado Pago por curso/pacote); integração automática com Meta Ads/Google Ads; tutor de IA conversacional; fine-tuning; treinamento de modelo próprio; publicação automática de questões sem revisão. A arquitetura deve permitir evolução para estes itens no futuro, mas nenhum deles é construído especulativamente agora.
 
 ## Visão geral das fases
 

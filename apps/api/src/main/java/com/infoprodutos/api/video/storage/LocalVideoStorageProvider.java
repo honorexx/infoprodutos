@@ -11,20 +11,56 @@ import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
 public class LocalVideoStorageProvider implements VideoStorageProvider {
 
+    private static final Logger log = LoggerFactory.getLogger(LocalVideoStorageProvider.class);
+
     private final Path root;
 
     public LocalVideoStorageProvider(VideoStorageProperties properties) {
-        this.root = Path.of(properties.localRoot()).toAbsolutePath().normalize();
+        this.root = resolveRoot(properties.localRoot());
         try {
             Files.createDirectories(this.root);
+            log.info("Video storage local root: {}", this.root);
         } catch (IOException e) {
             throw new IllegalStateException("Não foi possível criar o diretório local de vídeos: " + root, e);
         }
+    }
+
+    /**
+     * Paths relativos resolvem para {@code <monorepo>/data/videos} tanto se o JVM
+     * subir em {@code apps/api} quanto na raiz do repositório — evita capas “sumirem”
+     * por cwd diferente (IntelliJ vs Maven).
+     */
+    static Path resolveRoot(String configured) {
+        Path raw = Path.of(configured == null || configured.isBlank() ? "./data/videos" : configured);
+        if (raw.isAbsolute()) {
+            return raw.normalize();
+        }
+        Path cwd = Path.of("").toAbsolutePath().normalize();
+        Path monorepoRoot = detectMonorepoRoot(cwd);
+        String relative = raw.toString().replaceFirst("^\\./", "");
+        return monorepoRoot.resolve(relative).normalize();
+    }
+
+    static Path detectMonorepoRoot(Path cwd) {
+        if (cwd.getFileName() != null
+                && cwd.getFileName().toString().equals("api")
+                && cwd.getParent() != null
+                && cwd.getParent().getFileName() != null
+                && cwd.getParent().getFileName().toString().equals("apps")
+                && cwd.getParent().getParent() != null) {
+            return cwd.getParent().getParent();
+        }
+        if (Files.isDirectory(cwd.resolve("apps/api")) && Files.isDirectory(cwd.resolve("apps/web"))) {
+            return cwd;
+        }
+        return cwd;
     }
 
     @Override

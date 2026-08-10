@@ -17,6 +17,21 @@ export interface MeResponse {
   createdAt: string;
 }
 
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  linkHref: string | null;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface NotificationListResponse {
+  unreadCount: number;
+  items: AppNotification[];
+}
+
 export interface UserSummary {
   id: string;
   name: string;
@@ -48,6 +63,8 @@ export interface CourseSummary {
   slug: string;
   coverImageUrl: string | null;
   workloadHours: number | null;
+  priceCents: number;
+  currency: string;
   status: CourseStatus;
   createdByName: string;
   createdAt: string;
@@ -67,6 +84,8 @@ export interface Course {
   description: string | null;
   coverImageUrl: string | null;
   workloadHours: number | null;
+  priceCents: number;
+  currency: string;
   status: CourseStatus;
   minCompletionPercentage: number;
   minPassingScore: number;
@@ -79,6 +98,39 @@ export interface Course {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProductPackage {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  priceCents: number;
+  currency: string;
+  active: boolean;
+  courses: {
+    id: string;
+    title: string;
+    slug: string;
+    coverImageUrl: string | null;
+    priceCents: number;
+  }[];
+}
+
+export interface CheckoutSession {
+  orderId: string;
+  initPoint: string;
+  sandboxInitPoint: string | null;
+  mockMode: boolean;
+}
+
+export interface OrderStatus {
+  orderId: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "REFUNDED";
+  kind: "COURSE" | "PACKAGE";
+  amountCents: number;
+  currency: string;
+  courseIds: string[];
 }
 
 export interface Lesson {
@@ -113,6 +165,7 @@ export interface VideoAsset {
   uploadStatus: string;
   processingStatus: string;
   failureReason: string | null;
+  hasThumbnail: boolean;
   createdAt: string;
 }
 
@@ -180,6 +233,7 @@ export interface Enrollment {
   studentEmail: string;
   courseId: string;
   courseTitle: string;
+  courseCoverImageUrl: string | null;
   status: EnrollmentStatus;
   startedAt: string;
   expiresAt: string | null;
@@ -213,6 +267,7 @@ export interface ProgressSummary {
   enrollmentId: string;
   courseId: string;
   courseTitle: string;
+  courseCoverImageUrl: string | null;
   enrollmentStatus: EnrollmentStatus;
   totalPublishedLessons: number;
   completedLessons: number;
@@ -226,7 +281,8 @@ export interface ProgressSummary {
 
 export interface StreamUrl {
   url: string;
-  expiresAt: number;
+  thumbnailUrl: string | null;
+  expiresAtEpochSeconds: number;
   ttlSeconds: number;
 }
 
@@ -340,4 +396,29 @@ export interface ApiErrorBody {
   timestamp: string;
   correlationId: string | null;
   errors: { field: string; message: string }[];
+}
+
+export interface DashboardStats {
+  roleView: "STUDENT" | "INSTRUCTOR" | "ADMIN";
+  year: number;
+  student: {
+    enrolledCourses: number;
+    startedCourses: number;
+    completedCourses: number;
+    averageProgressPercent: number;
+  } | null;
+  instructor: {
+    ownedCourses: number;
+    publishedCourses: number;
+    enrolledStudents: number;
+    activeStudentsLast7Days: number;
+  } | null;
+  admin: {
+    totalStudents: number;
+    publishedCourses: number;
+    totalCourses: number;
+    totalEnrollments: number;
+    activeEnrollments: number;
+  } | null;
+  activitySeries: { label: string; month: number; value: number }[];
 }

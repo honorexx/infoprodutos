@@ -12,6 +12,7 @@ public record VideoAssetResponse(
         String uploadStatus,
         String processingStatus,
         String failureReason,
+        boolean hasThumbnail,
         String createdAt) {
 
     public static VideoAssetResponse from(VideoAsset asset) {
@@ -25,6 +26,7 @@ public record VideoAssetResponse(
                 asset.getUploadStatus().name(),
                 asset.getProcessingStatus().name(),
                 asset.getFailureReason(),
+                asset.getThumbnailStorageKey() != null && !asset.getThumbnailStorageKey().isBlank(),
                 asset.getCreatedAt().toString());
     }
 }

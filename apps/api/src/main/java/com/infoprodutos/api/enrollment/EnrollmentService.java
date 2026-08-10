@@ -2,6 +2,8 @@ package com.infoprodutos.api.enrollment;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infoprodutos.api.audit.AuditService;
+import com.infoprodutos.api.certificate.domain.Certificate;
+import com.infoprodutos.api.certificate.repository.CertificateRepository;
 import com.infoprodutos.api.common.exception.BadRequestException;
 import com.infoprodutos.api.common.exception.ForbiddenOperationException;
 import com.infoprodutos.api.common.exception.NotFoundException;
@@ -13,10 +15,16 @@ import com.infoprodutos.api.enrollment.domain.EnrollmentStatus;
 import com.infoprodutos.api.enrollment.dto.CreateEnrollmentRequest;
 import com.infoprodutos.api.enrollment.dto.EnrollmentResponse;
 import com.infoprodutos.api.enrollment.repository.EnrollmentRepository;
+import com.infoprodutos.api.enrollment.repository.LessonProgressRepository;
+import com.infoprodutos.api.notification.NotificationService;
+import com.infoprodutos.api.quiz.repository.QuizAttemptRepository;
+import com.infoprodutos.api.quiz.repository.StudentAnswerRepository;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.user.domain.RoleCode;
 import com.infoprodutos.api.user.domain.User;
 import com.infoprodutos.api.user.repository.UserRepository;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -36,6 +44,11 @@ public class EnrollmentService {
     private final CourseAccessGuard courseAccessGuard;
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
+    private final NotificationService notificationService;
+    private final LessonProgressRepository lessonProgressRepository;
+    private final StudentAnswerRepository studentAnswerRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
+    private final CertificateRepository certificateRepository;
 
     @Transactional
     public EnrollmentResponse grant(CreateEnrollmentRequest request, CustomUserDetails principal) {
@@ -47,38 +60,82 @@ public class EnrollmentService {
             throw new BadRequestException("Usuário informado não pode ser matriculado.");
         }
 
+        Enrollment enrollment = upsertActiveEnrollment(
+                student, course, principal.getId(), "ENROLLMENT_GRANTED", "ENROLLMENT_REACTIVATED", null);
+        return EnrollmentResponse.from(enrollmentRepository.findByIdWithDetails(enrollment.getId()).orElse(enrollment));
+    }
+
+    /**
+     * Libera curso após pagamento aprovado (sem papel de instructor).
+     * Idempotente se a matrícula já estiver ACTIVE.
+     */
+    @Transactional
+    public EnrollmentResponse grantFromPurchase(UUID studentUserId, UUID courseId, UUID orderId) {
+        Course course = courseService.findActiveOrThrow(courseId);
+        User student = userRepository
+                .findById(studentUserId)
+                .filter(u -> u.getDeletedAt() == null)
+                .orElseThrow(() -> new NotFoundException("Aluno não encontrado."));
+        if (!student.hasRole(RoleCode.STUDENT)
+                && !student.hasRole(RoleCode.INSTRUCTOR)
+                && !student.hasRole(RoleCode.SUPER_ADMIN)) {
+            throw new BadRequestException("Usuário informado não pode ser matriculado.");
+        }
+
+        Enrollment enrollment = upsertActiveEnrollment(
+                student,
+                course,
+                null,
+                "ENROLLMENT_GRANTED_PAYMENT",
+                "ENROLLMENT_REACTIVATED_PAYMENT",
+                orderId);
+        return EnrollmentResponse.from(enrollmentRepository.findByIdWithDetails(enrollment.getId()).orElse(enrollment));
+    }
+
+    private Enrollment upsertActiveEnrollment(
+            User student,
+            Course course,
+            UUID grantedByUserId,
+            String grantAction,
+            String reactivateAction,
+            UUID orderId) {
         Enrollment enrollment = enrollmentRepository
                 .findByStudentIdAndCourseId(student.getId(), course.getId())
                 .orElse(null);
 
         if (enrollment == null) {
-            enrollment = new Enrollment(student, course, principal.getId());
+            enrollment = new Enrollment(student, course, grantedByUserId);
             enrollment = enrollmentRepository.save(enrollment);
+            Map<String, Object> meta = new java.util.HashMap<>();
+            meta.put("courseId", course.getId().toString());
+            meta.put("studentUserId", student.getId().toString());
+            if (orderId != null) {
+                meta.put("orderId", orderId.toString());
+            }
             auditService.record(
-                    principal.getId(),
-                    "ENROLLMENT_GRANTED",
+                    grantedByUserId != null ? grantedByUserId : student.getId(),
+                    grantAction,
                     "Enrollment",
                     enrollment.getId(),
-                    toJson(Map.of(
-                            "courseId", course.getId().toString(),
-                            "studentUserId", student.getId().toString())));
+                    toJson(meta));
+            notificationService.notifyEnrollmentGranted(student, course);
         } else if (enrollment.getStatus() == EnrollmentStatus.ACTIVE) {
-            // Idempotente: já ativo.
+            // Idempotente.
         } else {
             enrollment.setStatus(EnrollmentStatus.ACTIVE);
             enrollment.setStartedAt(java.time.Instant.now());
-            enrollment.setGrantedByUserId(principal.getId());
+            enrollment.setGrantedByUserId(grantedByUserId);
             enrollment.setExpiresAt(null);
             enrollment = enrollmentRepository.save(enrollment);
             auditService.record(
-                    principal.getId(),
-                    "ENROLLMENT_REACTIVATED",
+                    grantedByUserId != null ? grantedByUserId : student.getId(),
+                    reactivateAction,
                     "Enrollment",
                     enrollment.getId(),
-                    null);
+                    orderId != null ? toJson(Map.of("orderId", orderId.toString())) : null);
+            notificationService.notifyEnrollmentGranted(student, course);
         }
-
-        return EnrollmentResponse.from(enrollmentRepository.findByIdWithDetails(enrollment.getId()).orElse(enrollment));
+        return enrollment;
     }
 
     @Transactional(readOnly = true)
@@ -139,6 +196,51 @@ public class EnrollmentService {
         enrollment = enrollmentRepository.save(enrollment);
         auditService.record(principal.getId(), "ENROLLMENT_REACTIVATED", "Enrollment", enrollment.getId(), null);
         return EnrollmentResponse.from(enrollment);
+    }
+
+    /**
+     * Remove definitivamente a matrícula e dados derivados (progresso, quizzes, certificado).
+     * Somente SUPER_ADMIN — instrutor continua usando cancelamento lógico.
+     */
+    @Transactional
+    public void remove(UUID enrollmentId, CustomUserDetails principal) {
+        if (!principal.getRoleCodes().contains(RoleCode.SUPER_ADMIN)) {
+            throw new ForbiddenOperationException("Somente administradores podem remover matrículas.");
+        }
+        Enrollment enrollment = findOrThrow(enrollmentId);
+        UUID courseId = enrollment.getCourse().getId();
+        UUID studentId = enrollment.getStudent().getId();
+
+        certificateRepository
+                .findByEnrollmentId(enrollmentId)
+                .ifPresent(this::deleteCertificatePdfQuietly);
+        studentAnswerRepository.deleteByEnrollmentId(enrollmentId);
+        quizAttemptRepository.deleteByEnrollmentId(enrollmentId);
+        lessonProgressRepository.deleteByEnrollmentId(enrollmentId);
+        certificateRepository.deleteByEnrollmentId(enrollmentId);
+
+        auditService.record(
+                principal.getId(),
+                "ENROLLMENT_REMOVED",
+                "Enrollment",
+                enrollmentId,
+                toJson(Map.of(
+                        "courseId", courseId.toString(),
+                        "studentUserId", studentId.toString())));
+
+        enrollmentRepository.delete(enrollment);
+    }
+
+    private void deleteCertificatePdfQuietly(Certificate certificate) {
+        String pdfPath = certificate.getPdfPath();
+        if (pdfPath == null || pdfPath.isBlank()) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(Path.of(pdfPath));
+        } catch (Exception ignored) {
+            // Melhor esforço: a linha do certificado será apagada mesmo assim.
+        }
     }
 
     public Enrollment findOrThrow(UUID id) {

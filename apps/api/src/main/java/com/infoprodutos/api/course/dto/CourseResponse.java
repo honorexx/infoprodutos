@@ -1,5 +1,6 @@
 package com.infoprodutos.api.course.dto;
 
+import com.infoprodutos.api.course.CourseCoverUrls;
 import com.infoprodutos.api.course.domain.Course;
 import com.infoprodutos.api.course.domain.CourseInstructor;
 import java.math.BigDecimal;
@@ -13,6 +14,8 @@ public record CourseResponse(
         String description,
         String coverImageUrl,
         BigDecimal workloadHours,
+        long priceCents,
+        String currency,
         String status,
         BigDecimal minCompletionPercentage,
         BigDecimal minPassingScore,
@@ -34,8 +37,10 @@ public record CourseResponse(
                 course.getTitle(),
                 course.getSlug(),
                 course.getDescription(),
-                course.getCoverImageUrl(),
+                CourseCoverUrls.resolveForApi(course),
                 course.getWorkloadHours(),
+                course.getPriceCents(),
+                course.getCurrency(),
                 course.getStatus().name(),
                 course.getMinCompletionPercentage(),
                 course.getMinPassingScore(),

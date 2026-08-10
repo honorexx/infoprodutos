@@ -53,4 +53,11 @@ public class VideoAsset extends AuditableEntity {
 
     @Column(name = "checksum", length = 128)
     private String checksum;
+
+    /** Capa/poster; obrigatória em novos uploads. */
+    @Column(name = "thumbnail_storage_key", length = 500)
+    private String thumbnailStorageKey;
+
+    @Column(name = "thumbnail_mime_type", length = 100)
+    private String thumbnailMimeType;
 }

@@ -13,11 +13,14 @@ function Progress({
 }: React.ComponentProps<typeof ProgressPrimitive.Root> & {
   indicatorClassName?: string
 }) {
+  const clamped = Math.min(100, Math.max(0, value ?? 0))
+
   return (
     <ProgressPrimitive.Root
       data-slot="progress"
+      value={clamped}
       className={cn(
-        "relative h-1.5 w-full overflow-hidden rounded-full bg-progress-track",
+        "relative h-px w-full overflow-hidden bg-progress-track",
         className
       )}
       {...props}
@@ -25,10 +28,10 @@ function Progress({
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
         className={cn(
-          "h-full w-full flex-1 rounded-full bg-primary transition-transform duration-500 ease-out",
+          "h-full w-full flex-1 bg-primary transition-transform duration-500 ease-out",
           indicatorClassName
         )}
-        style={{ transform: `translateX(-${100 - (value ?? 0)}%)` }}
+        style={{ transform: `translateX(-${100 - clamped}%)` }}
       />
     </ProgressPrimitive.Root>
   )

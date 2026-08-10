@@ -5,11 +5,10 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import { sidebarTransition } from "@/lib/animations";
-import { primaryNavigation, upcomingNavigation, filterNavByRole, type NavItem } from "@/config/navigation";
-import { LogoMark, SidebarBrand } from "@/components/logo";
-import { Badge } from "@/components/ui/badge";
+import { primaryNavigation, filterNavByRole, type NavItem } from "@/config/navigation";
+import { SidebarBrand } from "@/components/logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -19,8 +18,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 /**
- * Sidebar fixa do desktop. A navegação mobile (drawer) vive em
- * `mobile-navigation.tsx` e compartilha os mesmos itens de `config/navigation.ts`.
+ * Sidebar navy do LMS. Item ativo: texto gold + bg soft + indicador lateral.
  */
 export function AppSidebar({
   collapsed,
@@ -35,84 +33,63 @@ export function AppSidebar({
   if (!user) return null;
 
   const primary = filterNavByRole(primaryNavigation, hasRole);
-  const upcoming = filterNavByRole(upcomingNavigation, hasRole);
-
-  const initials = user.name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+  const initials = getInitials(user.name);
+  const roleLabel = user.roles.map((r) => ROLE_LABELS[r] ?? r)[0] ?? "Usuário";
 
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 68 : 248 }}
+      animate={{ width: collapsed ? 72 : 248 }}
       transition={sidebarTransition}
       className="sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex"
     >
       <div
         className={cn(
-          "flex h-16 items-center justify-center border-b border-sidebar-border/60",
-          collapsed ? "px-0" : "px-3",
+          "flex h-14 items-center border-b border-sidebar-border",
+          collapsed ? "justify-center px-0" : "justify-start px-4",
         )}
       >
         <SidebarBrand collapsed={collapsed} />
       </div>
 
-      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-2">
-        <div className="flex flex-col gap-0.5">
-          {primary.map((item) => (
-            <SidebarLink
-              key={item.href}
-              item={item}
-              collapsed={collapsed}
-              active={pathname === item.href || pathname.startsWith(item.href + "/")}
-            />
-          ))}
-        </div>
-
-        {upcoming.length > 0 && (
-          <div className="flex flex-col gap-0.5">
-            {!collapsed && (
-              <p className="px-2.5 pb-1 text-[10px] font-semibold tracking-[0.14em] text-sidebar-muted/80 uppercase">
-                Próximas fases
-              </p>
-            )}
-            {upcoming.map((item) => (
-              <SidebarLink key={item.label} item={item} collapsed={collapsed} active={false} />
-            ))}
+      {!collapsed && (
+        <div className="border-b border-sidebar-border px-4 py-4">
+          <div className="flex items-center gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary-soft-foreground">
+              {initials}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-foreground">{user.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{roleLabel}</p>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3" aria-label="Principal">
+        {primary.map((item) => (
+          <SidebarLink
+            key={`${item.label}-${item.href}`}
+            item={item}
+            collapsed={collapsed}
+            active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+          />
+        ))}
       </nav>
 
-      <button
-        type="button"
-        onClick={onToggleCollapsed}
-        className={cn(
-          "mx-3 mb-1 flex items-center gap-2 rounded-md px-2.5 py-2 text-xs font-medium text-sidebar-muted transition-colors hover:bg-primary-hover hover:text-sidebar-foreground",
-          collapsed && "justify-center px-0",
-        )}
-        aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-      >
-        {collapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
-        {!collapsed && "Recolher menu"}
-      </button>
-
-      <div className="border-t border-sidebar-border p-3">
-        <div className={cn("flex items-center gap-2.5 rounded-md px-1 py-1.5", collapsed && "justify-center px-0")}>
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-navy-950 text-xs font-semibold text-white">
-            {initials}
-          </span>
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-sidebar-foreground">{user.name}</p>
-              <p className="truncate text-xs text-sidebar-muted">
-                {user.roles.map((r) => ROLE_LABELS[r] ?? r).join(" · ")}
-              </p>
-            </div>
+      <div className="mt-auto border-t border-sidebar-border px-2 py-3">
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-md px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-item-hover hover:text-foreground",
+            collapsed && "justify-center px-0",
           )}
-        </div>
+          aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+        >
+          {collapsed ? <ChevronsRight className="size-4" /> : <ChevronsLeft className="size-4" />}
+          {!collapsed && "Recolher"}
+        </button>
       </div>
     </motion.aside>
   );
@@ -129,40 +106,25 @@ function SidebarLink({
 }) {
   const Icon = item.icon;
 
-  const content = item.comingSoon ? (
-    <span
-      className={cn(
-        "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm font-medium text-sidebar-muted/70",
-        collapsed && "justify-center px-0",
-      )}
-      aria-disabled="true"
-    >
-      <Icon className="size-4 shrink-0" />
-      {!collapsed && (
-        <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-          <span className="truncate">{item.label}</span>
-          <Badge
-            variant="secondary"
-            className="shrink-0 border-sidebar-border bg-navy-950/10 text-sidebar-muted"
-          >
-            Em breve
-          </Badge>
-        </span>
-      )}
-    </span>
-  ) : (
+  const link = (
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-md border-l-2 px-2.5 py-2 text-sm font-medium transition-colors",
-        collapsed && "justify-center border-l-0 px-0",
+        "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        collapsed && "justify-center px-0",
         active
-          ? "border-navy-950 bg-sidebar-accent text-sidebar-foreground"
-          : "border-transparent text-sidebar-muted hover:bg-primary-hover hover:text-sidebar-foreground",
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+          : "text-muted-foreground hover:bg-sidebar-item-hover hover:text-foreground",
       )}
     >
-      <Icon className={cn("size-4 shrink-0", active && "text-navy-950")} />
+      {active && (
+        <span
+          aria-hidden
+          className="absolute top-1.5 bottom-1.5 left-0 w-0.5 rounded-full bg-primary"
+        />
+      )}
+      <Icon className={cn("size-4 shrink-0", active && "text-primary-hover")} />
       {!collapsed && <span className="truncate">{item.label}</span>}
     </Link>
   );
@@ -170,14 +132,11 @@ function SidebarLink({
   if (collapsed) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{content}</TooltipTrigger>
-        <TooltipContent side="right">
-          {item.label}
-          {item.comingSoon ? " · Em breve" : ""}
-        </TooltipContent>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
+        <TooltipContent side="right">{item.label}</TooltipContent>
       </Tooltip>
     );
   }
 
-  return content;
+  return link;
 }

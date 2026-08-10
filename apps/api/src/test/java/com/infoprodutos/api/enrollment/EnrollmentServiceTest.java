@@ -1,13 +1,17 @@
 package com.infoprodutos.api.enrollment;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.infoprodutos.api.audit.AuditService;
+import com.infoprodutos.api.certificate.repository.CertificateRepository;
+import com.infoprodutos.api.common.exception.ForbiddenOperationException;
 import com.infoprodutos.api.course.CourseAccessGuard;
 import com.infoprodutos.api.course.CourseService;
 import com.infoprodutos.api.course.domain.Course;
@@ -16,6 +20,9 @@ import com.infoprodutos.api.enrollment.domain.EnrollmentStatus;
 import com.infoprodutos.api.enrollment.dto.CreateEnrollmentRequest;
 import com.infoprodutos.api.enrollment.dto.EnrollmentResponse;
 import com.infoprodutos.api.enrollment.repository.EnrollmentRepository;
+import com.infoprodutos.api.enrollment.repository.LessonProgressRepository;
+import com.infoprodutos.api.quiz.repository.QuizAttemptRepository;
+import com.infoprodutos.api.quiz.repository.StudentAnswerRepository;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.user.domain.Role;
 import com.infoprodutos.api.user.domain.RoleCode;
@@ -49,6 +56,21 @@ class EnrollmentServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private com.infoprodutos.api.notification.NotificationService notificationService;
+
+    @Mock
+    private LessonProgressRepository lessonProgressRepository;
+
+    @Mock
+    private StudentAnswerRepository studentAnswerRepository;
+
+    @Mock
+    private QuizAttemptRepository quizAttemptRepository;
+
+    @Mock
+    private CertificateRepository certificateRepository;
+
     private EnrollmentService enrollmentService;
 
     private User instructor;
@@ -63,7 +85,12 @@ class EnrollmentServiceTest {
                 courseService,
                 courseAccessGuard,
                 auditService,
-                new ObjectMapper());
+                new ObjectMapper(),
+                notificationService,
+                lessonProgressRepository,
+                studentAnswerRepository,
+                quizAttemptRepository,
+                certificateRepository);
 
         instructor = userWithRole(RoleCode.INSTRUCTOR, "prof@test.local");
         student = userWithRole(RoleCode.STUDENT, "aluno@test.local");
@@ -116,6 +143,35 @@ class EnrollmentServiceTest {
 
         assertThat(response.status()).isEqualTo("ACTIVE");
         verify(auditService).record(eq(instructor.getId()), eq("ENROLLMENT_REACTIVATED"), eq("Enrollment"), any(), any());
+    }
+
+    @Test
+    void remove_deletesEnrollmentForAdmin() throws Exception {
+        User admin = userWithRole(RoleCode.SUPER_ADMIN, "admin@test.local");
+        Enrollment enrollment = new Enrollment(student, course, admin.getId());
+        setId(enrollment, UUID.randomUUID());
+        when(enrollmentRepository.findByIdWithDetails(enrollment.getId())).thenReturn(Optional.of(enrollment));
+        when(certificateRepository.findByEnrollmentId(enrollment.getId())).thenReturn(Optional.empty());
+
+        enrollmentService.remove(enrollment.getId(), new CustomUserDetails(admin));
+
+        verify(studentAnswerRepository).deleteByEnrollmentId(enrollment.getId());
+        verify(quizAttemptRepository).deleteByEnrollmentId(enrollment.getId());
+        verify(lessonProgressRepository).deleteByEnrollmentId(enrollment.getId());
+        verify(certificateRepository).deleteByEnrollmentId(enrollment.getId());
+        verify(enrollmentRepository).delete(enrollment);
+        verify(auditService)
+                .record(eq(admin.getId()), eq("ENROLLMENT_REMOVED"), eq("Enrollment"), eq(enrollment.getId()), any());
+    }
+
+    @Test
+    void remove_rejectsInstructor() throws Exception {
+        Enrollment enrollment = new Enrollment(student, course, instructor.getId());
+        setId(enrollment, UUID.randomUUID());
+
+        assertThatThrownBy(() -> enrollmentService.remove(enrollment.getId(), new CustomUserDetails(instructor)))
+                .isInstanceOf(ForbiddenOperationException.class);
+        verify(enrollmentRepository, never()).delete(any());
     }
 
     private static User userWithRole(String roleCode, String email) throws Exception {

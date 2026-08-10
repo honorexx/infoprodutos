@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ApiImage } from "@/components/ui/api-image";
 import {
   Dialog,
   DialogContent,
@@ -40,15 +41,19 @@ function CoursesContent() {
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<CourseFormInput>({ resolver: zodResolver(courseFormSchema) });
+  } = useForm<CourseFormInput>({
+    resolver: zodResolver(courseFormSchema),
+    defaultValues: { priceReais: "497" },
+  });
 
   const loadCourses = useCallback(async () => {
     setIsLoading(true);
     try {
       const page = await apiFetch<PageResponse<CourseSummary>>("/courses?size=50&sort=updatedAt,desc");
-      setCourses(page.content);
+      setCourses(page.content ?? []);
     } catch (error) {
       toast.error(error instanceof ApiError ? (error.body?.detail ?? error.message) : "Erro ao carregar cursos.");
+      setCourses([]);
     } finally {
       setIsLoading(false);
     }
@@ -67,6 +72,7 @@ function CoursesContent() {
           title: data.title,
           description: data.description || null,
           workloadHours: Number(data.workloadHours),
+          priceCents: Math.round(Number(data.priceReais) * 100),
         },
       });
       toast.success("Curso criado com sucesso.");
@@ -78,19 +84,24 @@ function CoursesContent() {
     }
   }
 
-  const filtered = courses.filter((c) => c.title.toLowerCase().includes(query.toLowerCase()));
+  const filtered = (courses ?? []).filter((c) =>
+    c.title.toLowerCase().includes(query.toLowerCase()),
+  );
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6 sm:p-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="kicker">Painel do professor</span>
           <h1 className="mt-2 font-heading text-2xl font-medium tracking-tight sm:text-3xl">Cursos</h1>
-          <p className="mt-1 text-muted-foreground">Gerencie a estrutura curricular dos seus cursos.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Estrutura curricular · {courses.length}{" "}
+            {courses.length === 1 ? "curso" : "cursos"}
+          </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-1.5">
+            <Button size="sm" className="gap-1.5">
               <Plus className="size-4" />
               Novo curso
             </Button>
@@ -117,6 +128,21 @@ function CoursesContent() {
                   <p className="text-sm text-destructive">{errors.workloadHours.message}</p>
                 )}
               </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="priceReais">Preço (R$)</Label>
+                <Input
+                  id="priceReais"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  placeholder="0,00"
+                  defaultValue="0"
+                  {...register("priceReais")}
+                />
+                {errors.priceReais && (
+                  <p className="text-sm text-destructive">{errors.priceReais.message}</p>
+                )}
+              </div>
               <DialogFooter>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? "Criando..." : "Criar curso"}
@@ -128,50 +154,52 @@ function CoursesContent() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col divide-y divide-border/70 rounded-lg border border-border/70">
-          <Skeleton className="h-16 w-full rounded-none" />
-          <Skeleton className="h-16 w-full rounded-none" />
-          <Skeleton className="h-16 w-full rounded-none" />
+        <div className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
+          <Skeleton className="h-12 w-full rounded-none" />
+          <Skeleton className="h-12 w-full rounded-none" />
+          <Skeleton className="h-12 w-full rounded-none" />
         </div>
       ) : courses.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border/70 py-16 text-center text-muted-foreground">
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border py-14 text-center text-muted-foreground">
           <p>Você ainda não tem nenhum curso.</p>
           <p className="text-sm">Clique em &quot;Novo curso&quot; para começar.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {courses.length > 5 && (
-            <div className="relative max-w-xs">
-              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar curso..."
-                className="pl-8"
-              />
-            </div>
-          )}
-          <ul className="flex flex-col divide-y divide-border/70 rounded-lg border border-border/70">
+          <div className="relative max-w-xs">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar curso…"
+              className="h-9 pl-8 text-sm"
+            />
+          </div>
+          <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-md border border-border">
             {filtered.map((course) => (
               <li key={course.id}>
                 <Link
                   href={`/courses/${course.id}`}
-                  className="group/row flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-muted/40"
+                  className="group/row flex items-center justify-between gap-4 px-4 py-2.5 transition-colors hover:bg-surface-hover"
                 >
-                  <div className="flex min-w-0 flex-1 items-center gap-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-heading text-base font-medium tracking-tight">
-                        {course.title}
-                      </p>
-                      <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                        {course.workloadHours ? `${course.workloadHours}h · ` : ""}
-                        por {course.createdByName}
-                      </p>
-                    </div>
+                  <div className="relative size-12 shrink-0 overflow-hidden rounded-sm border border-border bg-navy-900">
+                    <ApiImage
+                      src={course.coverImageUrl}
+                      alt=""
+                      className="absolute inset-0 size-full object-cover"
+                      fallbackClassName="absolute inset-0"
+                    />
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium tracking-tight">{course.title}</p>
+                    <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                      {course.workloadHours ? `${course.workloadHours}h · ` : ""}
+                      {course.createdByName}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2.5">
                     <StatusBadge status={course.status} />
-                    <ArrowRight className="size-4 text-muted-foreground/50 transition-transform group-hover/row:translate-x-0.5 group-hover/row:text-foreground" />
+                    <ArrowRight className="size-3.5 text-muted-foreground/50 transition-transform group-hover/row:translate-x-0.5 group-hover/row:text-foreground" />
                   </div>
                 </Link>
               </li>

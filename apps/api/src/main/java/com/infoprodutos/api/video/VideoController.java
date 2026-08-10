@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,9 +42,10 @@ public class VideoController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','INSTRUCTOR')")
     public VideoAssetResponse upload(
             @PathVariable UUID id,
-            @RequestPart("file") MultipartFile file,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("thumbnail") MultipartFile thumbnail,
             @AuthenticationPrincipal CustomUserDetails principal) {
-        return videoService.uploadBinary(id, file, principal);
+        return videoService.uploadBinary(id, file, thumbnail, principal);
     }
 
     @PostMapping("/{id}/upload-complete")
@@ -53,6 +53,15 @@ public class VideoController {
     public VideoAssetResponse uploadComplete(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails principal) {
         return videoService.completeUpload(id, principal);
+    }
+
+    @PostMapping(path = "/{id}/thumbnail", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','INSTRUCTOR')")
+    public VideoAssetResponse uploadThumbnail(
+            @PathVariable UUID id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        return videoService.uploadThumbnail(id, file, principal);
     }
 
     @GetMapping("/{id}")
@@ -81,6 +90,17 @@ public class VideoController {
             @RequestParam("expires") long expires,
             @RequestParam("sig") String sig) {
         return videoService.stream(id, expires, sig);
+    }
+
+    /**
+     * Poster/capa do vídeo com a mesma assinatura HMAC do stream (sem Authorization).
+     */
+    @GetMapping("/{id}/thumbnail")
+    public ResponseEntity<InputStreamResource> thumbnail(
+            @PathVariable UUID id,
+            @RequestParam("expires") long expires,
+            @RequestParam("sig") String sig) {
+        return videoService.thumbnail(id, expires, sig);
     }
 
     @DeleteMapping("/{id}")

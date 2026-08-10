@@ -9,9 +9,15 @@ const STATUS_CONFIG: Record<string, { label: string; variant: BadgeVariant }> = 
   DRAFT: { label: "Rascunho", variant: "secondary" },
   PUBLISHED: { label: "Publicado", variant: "success" },
   ARCHIVED: { label: "Arquivado", variant: "destructive" },
+  APPROVED: { label: "Aprovada", variant: "success" },
+  REJECTED: { label: "Rejeitada", variant: "destructive" },
 
-  // Processamento de IA (Fase 3) — usado apenas em contexto de demonstração
-  // até a funcionalidade ser implementada.
+  // Dificuldade
+  EASY: { label: "Fácil", variant: "secondary" },
+  MEDIUM: { label: "Média", variant: "info" },
+  HARD: { label: "Difícil", variant: "warning" },
+
+  // Processamento de IA
   PENDING: { label: "Na fila", variant: "secondary" },
   TRANSCRIBING: { label: "Transcrevendo", variant: "info" },
   TRANSCRIBED: { label: "Transcrito", variant: "info" },

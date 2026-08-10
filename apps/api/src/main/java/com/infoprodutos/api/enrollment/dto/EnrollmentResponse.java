@@ -1,5 +1,6 @@
 package com.infoprodutos.api.enrollment.dto;
 
+import com.infoprodutos.api.course.CourseCoverUrls;
 import com.infoprodutos.api.enrollment.domain.Enrollment;
 import java.time.Instant;
 
@@ -10,6 +11,7 @@ public record EnrollmentResponse(
         String studentEmail,
         String courseId,
         String courseTitle,
+        String courseCoverImageUrl,
         String status,
         Instant startedAt,
         Instant expiresAt,
@@ -26,6 +28,7 @@ public record EnrollmentResponse(
                 e.getStudent().getEmail(),
                 e.getCourse().getId().toString(),
                 e.getCourse().getTitle(),
+                CourseCoverUrls.resolveForApi(e.getCourse()),
                 e.getStatus().name(),
                 e.getStartedAt(),
                 e.getExpiresAt(),

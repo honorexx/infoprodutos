@@ -42,7 +42,7 @@ Trade-off aceito: índices um pouco maiores e menor localidade física que `BIGS
 | VideoAsset | Nunca deletado fisicamente; substituído por novo registro (ver §5.7) | Preserva histórico de uploads/trocas de vídeo |
 | LessonMaterial | Soft delete | Simples, mas mantém rastreabilidade |
 | Question | Soft delete condicional: exclusão física só é permitida se **não houver** `StudentAnswer` associada; caso contrário, soft delete | Preserva integridade de tentativas já respondidas |
-| Enrollment | Nunca deletado; apenas transições de `status` (`ACTIVE`→`SUSPENDED`/`CANCELLED`/`EXPIRED`) | Necessário para relatórios e para o próprio certificado referenciar a matrícula |
+| Enrollment | Soft-delete via `status` (`CANCELLED`/`SUSPENDED`/`EXPIRED`) no fluxo normal; **SUPER_ADMIN** pode hard-delete (`DELETE /enrollments/{id}`), apagando progresso/quizzes/certificado da matrícula | Cancelamento preserva histórico; remoção admin libera o slot `UNIQUE(student, course)` e some do perfil do aluno |
 | LessonProgress | Nunca deletado | Histórico de progresso do aluno |
 | QuizAttempt / StudentAnswer | Nunca deletado, imutável após submissão | Integridade de avaliação/correção |
 | Certificate | Nunca deletado; `revoked_at` para revogação lógica | Validação pública deve poder identificar certificados revogados sem apagar histórico |
@@ -123,8 +123,11 @@ erDiagram
 | title | VARCHAR(200) | NOT NULL |
 | slug | VARCHAR(220) | UNIQUE NOT NULL (usado em URLs públicas) |
 | description | TEXT | NULL |
-| cover_image_url | VARCHAR(500) | NULL |
+| cover_image_url | VARCHAR(500) | NULL — URL http(s) externa **ou** storage_key local da capa |
+| cover_mime_type | VARCHAR(100) | NULL — MIME quando a capa é arquivo local |
 | workload_hours | NUMERIC(6,2) | NOT NULL (mínimo 0,5h na aplicação — obrigatório para certificado) |
+| price_cents | BIGINT | NOT NULL DEFAULT 0 — preço em centavos; 0 = sem compra self-service |
+| currency | VARCHAR(3) | NOT NULL DEFAULT `BRL` |
 | status | VARCHAR(20) | NOT NULL DEFAULT `DRAFT`; CHECK IN (`DRAFT`, `PUBLISHED`, `ARCHIVED`) |
 | min_completion_percentage | NUMERIC(5,2) | NOT NULL DEFAULT 100 |
 | min_passing_score | NUMERIC(5,2) | NOT NULL DEFAULT 70 |
@@ -201,9 +204,13 @@ erDiagram
 | processing_status | VARCHAR(20) | NOT NULL DEFAULT `PENDING`; CHECK IN (`PENDING`, `PROCESSING`, `READY`, `FAILED`) |
 | failure_reason | VARCHAR(500) | NULL (mensagem segura, sem stack trace) |
 | checksum | VARCHAR(128) | NULL |
+| thumbnail_storage_key | VARCHAR(500) | NULL em assets legados; **obrigatória em novos uploads** |
+| thumbnail_mime_type | VARCHAR(100) | NULL (ex.: `image/jpeg`, `image/png`, `image/webp`) |
 | created_at / updated_at | TIMESTAMPTZ | NOT NULL |
 
 **[DECISÃO]** Substituir o vídeo de uma aula **cria um novo registro** `video_asset` e atualiza `lesson.current_video_asset_id`; o registro antigo permanece no banco (não é apagado), preservando histórico de uploads e o vínculo com `Transcript`/`AiGenerationJob` que porventura já existam para ele. Índice em `lesson_id`.
+
+**[DECISÃO]** Thumbnail (capa/poster) é **obrigatória** no `POST /videos/{id}/upload` (`multipart` parts `file` + `thumbnail`). Assets anteriores à migração `V23` podem ficar sem thumbnail; o player funciona sem `poster`.
 
 ### 5.8 `lesson_material`
 
@@ -320,6 +327,14 @@ A regra "exatamente 4 alternativas" e "exatamente uma correta" (não zero) é va
 | created_at / updated_at | TIMESTAMPTZ | NOT NULL |
 
 **[DECISÃO]** `UNIQUE(student_user_id, course_id)` — um único registro de matrícula por par aluno/curso; reativações/suspensões são transições de `status`, não novas linhas. Isso simplifica a consulta "o aluno tem acesso a este curso?" para uma checagem direta, mas implica que o **histórico de suspensões/reativações não é versionado na própria linha** — mudanças de status relevantes são registradas em `AuditLog`. **[PERGUNTA ABERTA]**: confirmar se é necessário um histórico completo de mudanças de status de matrícula além do audit log genérico.
+
+### 5.14.1 Comércio (`product_package`, `commerce_order`, `commerce_order_item`)
+
+- `product_package`: título, slug, `price_cents`, `currency`, `active`, soft delete; N:N com `course` via `product_package_course`.
+- `commerce_order`: comprador, `kind` (`COURSE`|`PACKAGE`), alvo (`course_id` ou `package_id`), `amount_cents`, `status`, `mp_preference_id`, `mp_payment_id` (unique), `idempotency_key` (unique).
+- `commerce_order_item`: cursos a liberar quando o pedido for `APPROVED` (1 item se compra de curso; N se pacote).
+
+Migração: `V25__course_price_and_commerce.sql`.
 
 ### 5.15 `lesson_progress`
 
@@ -463,3 +478,12 @@ Detalhe da máquina de estados e da estratégia de idempotência em `AI_PIPELINE
 ## 8. Documentos relacionados
 
 `ARCHITECTURE.md`, `API.md`, `AI_PIPELINE.md`, `SECURITY.md`, `DECISIONS.md`.
+
+## Persistência de arquivos (fora do Postgres)
+
+**[DECISÃO]** Metadados (cursos, vídeos, certificados) ficam no Postgres. Bytes de vídeo/material e PDFs de certificado ficam no filesystem:
+
+- `VIDEO_STORAGE_LOCAL_ROOT` (default `./data/videos`)
+- `CERTIFICATE_STORAGE_LOCAL_ROOT` (default `./data/certificates`)
+
+No Docker Compose esses diretórios são montados em `./data/videos` e `./data/certificates` no host. Reiniciar a API **não** apaga uploads; `docker compose down -v` **apaga** o volume do Postgres (metadados), mas não esses arquivos a menos que você delete a pasta `data/`.

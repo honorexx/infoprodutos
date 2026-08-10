@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,6 +17,10 @@ public interface LessonProgressRepository extends JpaRepository<LessonProgress, 
     List<LessonProgress> findAllByEnrollmentId(UUID enrollmentId);
 
     long countByEnrollmentIdAndStatus(UUID enrollmentId, LessonProgressStatus status);
+
+    @Modifying(clearAutomatically = true)
+    @Query("delete from LessonProgress lp where lp.enrollment.id = :enrollmentId")
+    int deleteByEnrollmentId(@Param("enrollmentId") UUID enrollmentId);
 
     @Query(
             """

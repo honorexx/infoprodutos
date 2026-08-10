@@ -14,6 +14,7 @@ import com.infoprodutos.api.common.exception.BadRequestException;
 import com.infoprodutos.api.common.exception.ConflictException;
 import com.infoprodutos.api.config.AppUrlProperties;
 import com.infoprodutos.api.config.JwtProperties;
+import com.infoprodutos.api.notification.NotificationService;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.security.JwtService;
 import com.infoprodutos.api.security.TokenHasher;
@@ -56,6 +57,7 @@ public class AuthService {
     private final AppUrlProperties appUrlProperties;
     private final PasswordResetMailer passwordResetMailer;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     public record IssuedTokens(String accessToken, String rawRefreshToken, Instant refreshTokenExpiresAt) {}
 
@@ -71,6 +73,7 @@ public class AuthService {
         User user = new User(request.name(), request.email().toLowerCase(), passwordEncoder.encode(request.password()));
         user.setRoles(Set.of(studentRole));
         user = userRepository.save(user);
+        notificationService.notifyWelcome(user);
 
         IssuedTokens tokens = issueTokens(user);
         return new IssuedTokensWithUser(tokens, user);
@@ -83,8 +86,10 @@ public class AuthService {
                     new UsernamePasswordAuthenticationToken(request.email().toLowerCase(), request.password()));
             CustomUserDetails principal = (CustomUserDetails) authentication.getPrincipal();
             User user = principal.getUser();
+            boolean wasReturningUser = user.getLastLoginAt() != null;
             user.setLastLoginAt(Instant.now());
             userRepository.save(user);
+            notificationService.notifyWelcomeBackIfDue(user, wasReturningUser);
             IssuedTokens tokens = issueTokens(user);
             return new IssuedTokensWithUser(tokens, user);
         } catch (AuthenticationException ex) {

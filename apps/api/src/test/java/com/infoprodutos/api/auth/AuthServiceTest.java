@@ -68,6 +68,9 @@ class AuthServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private com.infoprodutos.api.notification.NotificationService notificationService;
+
     private AuthService authService;
 
     @BeforeEach
@@ -87,7 +90,8 @@ class AuthServiceTest {
                 jwtProperties,
                 appUrlProperties,
                 passwordResetMailer,
-                auditService);
+                auditService,
+                notificationService);
     }
 
     @Test

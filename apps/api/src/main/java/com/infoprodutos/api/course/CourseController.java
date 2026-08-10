@@ -11,7 +11,9 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,8 +24,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Endpoints de cursos (docs/API.md secao 2.3). Autorização por papel via
@@ -40,8 +44,10 @@ public class CourseController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<CourseSummaryResponse>> list(
-            Pageable pageable, @AuthenticationPrincipal CustomUserDetails principal) {
-        return ResponseEntity.ok(courseService.list(pageable, principal));
+            Pageable pageable,
+            @RequestParam(value = "q", required = false) String q,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        return ResponseEntity.ok(courseService.list(pageable, principal, q));
     }
 
     @GetMapping("/{id}")
@@ -66,6 +72,22 @@ public class CourseController {
             @Valid @RequestBody CourseUpdateRequest request,
             @AuthenticationPrincipal CustomUserDetails principal) {
         return ResponseEntity.ok(courseService.update(id, request, principal));
+    }
+
+    @PostMapping(path = "/{id}/cover", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'INSTRUCTOR')")
+    public CourseResponse uploadCover(
+            @PathVariable UUID id,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal CustomUserDetails principal) {
+        return courseService.uploadCover(id, file, principal);
+    }
+
+    @GetMapping("/{id}/cover")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<InputStreamResource> cover(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails principal) {
+        return courseService.coverImage(id, principal);
     }
 
     @PostMapping("/{id}/publish")

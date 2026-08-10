@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight } from "lucide-react";
@@ -14,10 +14,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthSplitLayout } from "@/components/auth-split-layout";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function RegisterPage() {
+function safeNextPath(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
+  return raw;
+}
+
+function RegisterForm() {
   const { register: registerUser } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = useMemo(() => safeNextPath(searchParams.get("next")), [searchParams]);
   const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
@@ -29,7 +37,7 @@ export default function RegisterPage() {
     setServerError(null);
     try {
       await registerUser(data.name, data.email, data.password);
-      router.push("/dashboard");
+      router.push(nextPath);
     } catch (error) {
       if (error instanceof ApiError) {
         const fieldMessages = error.body?.errors?.map((e) => e.message).join(" ");
@@ -43,14 +51,16 @@ export default function RegisterPage() {
   return (
     <AuthSplitLayout
       kicker="Comece agora"
-      title="Crie sua conta e organize seu primeiro curso."
+      title="Crie sua conta e organize o próximo passo."
       description="O cadastro público cria uma conta de aluno. Contas de professor são atribuídas pela administração."
     >
-      <div className="flex flex-col gap-1.5">
-        <h1 className="font-heading text-2xl font-medium tracking-tight">Criar conta</h1>
-        <p className="text-sm text-muted-foreground">Cadastre-se como aluno da plataforma.</p>
+      <div className="flex flex-col gap-2">
+        <h1 className="font-heading text-[1.75rem] font-medium tracking-tight">Criar conta</h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Preencha os dados para acessar a plataforma.
+        </p>
       </div>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
         {serverError && (
           <Alert variant="destructive">
             <AlertDescription>{serverError}</AlertDescription>
@@ -74,9 +84,7 @@ export default function RegisterPage() {
             autoComplete="new-password"
             {...register("password")}
           />
-          {errors.password && (
-            <p className="text-sm text-destructive">{errors.password.message}</p>
-          )}
+          {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="confirmPassword">Confirmar senha</Label>
@@ -90,17 +98,34 @@ export default function RegisterPage() {
             <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
           )}
         </div>
-        <Button type="submit" disabled={isSubmitting} className="mt-2 gap-1.5">
-          {isSubmitting ? "Criando conta..." : "Criar conta"}
+        <Button type="submit" disabled={isSubmitting} size="lg" className="mt-1 w-full gap-1.5">
+          {isSubmitting ? "Criando..." : "Criar conta"}
           {!isSubmitting && <ArrowRight className="size-4" />}
         </Button>
       </form>
       <p className="text-center text-sm text-muted-foreground">
         Já tem conta?{" "}
-        <Link href="/login" className="font-medium text-accent underline-offset-4 hover:underline">
+        <Link
+          href={`/login?next=${encodeURIComponent(nextPath)}`}
+          className="font-medium text-accent underline-offset-4 hover:underline"
+        >
           Entrar
         </Link>
       </p>
     </AuthSplitLayout>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 items-center justify-center p-8">
+          <Skeleton className="h-40 w-full max-w-sm" />
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }

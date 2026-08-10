@@ -7,6 +7,7 @@ public record ProgressSummaryResponse(
         String enrollmentId,
         String courseId,
         String courseTitle,
+        String courseCoverImageUrl,
         String enrollmentStatus,
         int totalPublishedLessons,
         int completedLessons,

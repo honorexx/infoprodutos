@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { UserPlus } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-context";
 import type { Enrollment, PageResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,8 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export function CourseEnrollmentsPanel({ courseId }: { courseId: string }) {
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole("SUPER_ADMIN");
   const [enrollments, setEnrollments] = useState<Enrollment[] | null>(null);
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
@@ -79,12 +82,31 @@ export function CourseEnrollmentsPanel({ courseId }: { courseId: string }) {
     }
   }
 
+  async function remove(id: string, studentName: string) {
+    const ok = window.confirm(
+      `Remover permanentemente ${studentName} deste curso?\n\nProgresso, quizzes e certificado desta matrícula serão apagados. Esta ação não pode ser desfeita.`,
+    );
+    if (!ok) return;
+    setPending(true);
+    try {
+      await apiFetch(`/enrollments/${id}`, { method: "DELETE" });
+      toast.success("Aluno removido do curso.");
+      await load();
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError ? (error.body?.detail ?? error.message) : "Não foi possível remover.",
+      );
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <section className="flex flex-col gap-4 rounded-lg border border-border/70 bg-surface-elevated p-5">
       <div>
         <h2 className="font-serif text-lg font-medium tracking-tight">Alunos matriculados</h2>
         <p className="text-sm text-muted-foreground">
-          Concessão manual de acesso (MVP sem pagamento).
+          Concessão manual de acesso. Instrutor cancela; admin também pode remover de vez.
         </p>
       </div>
 
@@ -152,6 +174,16 @@ export function CourseEnrollmentsPanel({ courseId }: { courseId: string }) {
                     onClick={() => void action(item.id, "reactivate", "Matrícula reativada.")}
                   >
                     Reativar
+                  </Button>
+                )}
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={pending}
+                    onClick={() => void remove(item.id, item.studentName)}
+                  >
+                    Remover
                   </Button>
                 )}
               </div>

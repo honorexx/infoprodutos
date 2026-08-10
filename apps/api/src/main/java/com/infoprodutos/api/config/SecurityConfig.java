@@ -9,6 +9,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -95,8 +96,18 @@ public class SecurityConfig {
                         .requestMatchers("/api-docs/**", "/api-docs/swagger-ui/**", "/api-docs/swagger-ui.html")
                         .permitAll()
                         .requestMatchers("/actuator/health").permitAll()
-                        // Stream de vídeo autenticado via assinatura HMAC na query string.
-                        .requestMatchers("/api/v1/videos/*/stream").permitAll()
+                        // Catálogo público (preços / pacotes) e webhook Mercado Pago.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/catalog/**", "/api/v1/packages", "/api/v1/packages/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/mercadopago/webhook")
+                        .permitAll()
+                        // Stream/thumbnail GET autenticados via assinatura HMAC na query string.
+                        // POST /videos/{id}/thumbnail exige JWT (upload de capa da aula).
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/videos/*/stream",
+                                "/api/v1/videos/*/thumbnail")
+                        .permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
         return http.build();

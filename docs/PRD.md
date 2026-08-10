@@ -29,7 +29,7 @@ O diferencial de produto do MVP é o **pipeline de IA para geração assistida d
 
 ## 3. Não objetivos do MVP
 
-Ver lista completa e justificativas em `ROADMAP.md` (seção "Fora do escopo"). Resumo: sem app mobile, sem rede social/chat/lives, sem marketplace de professores, sem afiliados, sem gamificação complexa, sem pagamento/assinatura automática, sem integração com Ads, sem tutor de IA conversacional, sem fine-tuning/treinamento de modelo próprio, sem publicação automática de questões de IA.
+Ver lista completa e justificativas em `ROADMAP.md` (seção "Fora do escopo"). Resumo: sem app mobile, sem rede social/chat/lives, sem marketplace de professores, sem afiliados, sem gamificação complexa, sem assinatura recorrente (compra avulsa Mercado Pago está no produto), sem integração com Ads, sem tutor de IA conversacional, sem fine-tuning/treinamento de modelo próprio, sem publicação automática de questões de IA.
 
 ## 4. Personas
 
@@ -72,7 +72,7 @@ Ver descrição funcional completa na mensagem original do usuário (seções 3.
 3. Módulos (estrutura curricular).
 4. Aulas (conteúdo, vídeo, materiais).
 5. Vídeos (abstração de armazenamento, sem blobs no banco).
-6. Matrículas (concessão manual no MVP, sem pagamento).
+6. Matrículas (compra Mercado Pago por curso/pacote + concessão manual admin).
 7. Progresso (aula e curso).
 8. Exercícios (múltipla escolha, manual ou gerado por IA).
 9. Tentativas e respostas (correção determinística no backend).
@@ -110,7 +110,7 @@ Esta regra deve ser confirmada antes da Fase de Progresso (ver `ROADMAP.md`).
 ## 10. Restrições e premissas gerais
 
 - Ambiente de produção não deve conter dados fictícios (seeds de demonstração ficam restritos a ambiente local/dev — ver `SECURITY.md` e `infra/`).
-- Pagamentos estão fora do MVP; toda concessão de acesso é manual (`Enrollment` criado por SUPER_ADMIN ou INSTRUCTOR autorizado).
+- Concessão de acesso: compra Mercado Pago (curso ou pacote) e/ou grant manual (`Enrollment` por SUPER_ADMIN ou INSTRUCTOR autorizado).
 - A plataforma é multi-tenant lógica única (uma instalação = uma organização). **[SUPOSIÇÃO]** Multi-tenancy (múltiplas escolas/organizações isoladas) não está no MVP; não implementado, mas o modelo de dados evita acoplamentos que impeçam evolução futura.
 
 ## 11. Glossário

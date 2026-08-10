@@ -7,10 +7,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, UUID> {
+
+    @Modifying(clearAutomatically = true)
+    @Query("delete from QuizAttempt a where a.enrollmentId = :enrollmentId")
+    int deleteByEnrollmentId(@Param("enrollmentId") UUID enrollmentId);
 
     List<QuizAttempt> findByEnrollmentIdAndQuizIdOrderByAttemptNumberAsc(UUID enrollmentId, UUID quizId);
 

@@ -63,6 +63,9 @@ class CertificateServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private com.infoprodutos.api.notification.NotificationService notificationService;
+
     @TempDir
     Path tempDir;
 
@@ -84,7 +87,8 @@ class CertificateServiceTest {
                 eligibilityService,
                 pdfGenerator,
                 props,
-                auditService);
+                auditService,
+                notificationService);
 
         student = userWithRole(RoleCode.STUDENT, "aluno@test.local");
         other = userWithRole(RoleCode.STUDENT, "outro@test.local");

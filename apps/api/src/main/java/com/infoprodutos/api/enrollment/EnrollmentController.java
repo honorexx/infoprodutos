@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -74,5 +75,12 @@ public class EnrollmentController {
     public EnrollmentResponse reactivate(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails principal) {
         return enrollmentService.reactivate(id, principal);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public void remove(@PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails principal) {
+        enrollmentService.remove(id, principal);
     }
 }

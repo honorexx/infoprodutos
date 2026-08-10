@@ -59,6 +59,12 @@ app:
     stuck-timeout-minutes: ${AI_JOB_STUCK_TIMEOUT_MINUTES:15}
     stuck-check-interval-ms: ${AI_JOB_STUCK_CHECK_INTERVAL_MS:60000}
     default-question-count: ${AI_DEFAULT_QUESTION_COUNT:5}
+  mercadopago:
+    access-token: ${MP_ACCESS_TOKEN:}
+    webhook-secret: ${MP_WEBHOOK_SECRET:}
+    api-base-url: ${MP_API_BASE_URL:https://api.mercadopago.com}
+    # Sem token: CheckoutService usa mock (simulate-payment). Em prod defina MP_ACCESS_TOKEN.
+    mock-when-token-blank: ${MP_MOCK_WHEN_TOKEN_BLANK:true}
   dev-seed:
     enabled: ${DEV_SEED_ENABLED:false}
     admin-email: ${DEV_SEED_ADMIN_EMAIL:}

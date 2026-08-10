@@ -21,11 +21,13 @@ import com.infoprodutos.api.course.dto.CourseResponse;
 import com.infoprodutos.api.course.dto.CourseUpdateRequest;
 import com.infoprodutos.api.course.repository.CourseInstructorRepository;
 import com.infoprodutos.api.course.repository.CourseRepository;
+import com.infoprodutos.api.enrollment.repository.EnrollmentRepository;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.user.domain.Role;
 import com.infoprodutos.api.user.domain.RoleCode;
 import com.infoprodutos.api.user.domain.User;
 import com.infoprodutos.api.user.repository.UserRepository;
+import com.infoprodutos.api.video.storage.VideoStorageProvider;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -49,17 +51,30 @@ class CourseServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private EnrollmentRepository enrollmentRepository;
+
+    @Mock
     private CourseAccessGuard accessGuard;
 
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private VideoStorageProvider storageProvider;
+
     private CourseService courseService;
 
     @BeforeEach
     void setUp() {
-        courseService =
-                new CourseService(courseRepository, courseInstructorRepository, userRepository, accessGuard, auditService, new ObjectMapper());
+        courseService = new CourseService(
+                courseRepository,
+                courseInstructorRepository,
+                userRepository,
+                enrollmentRepository,
+                accessGuard,
+                auditService,
+                new ObjectMapper(),
+                storageProvider);
     }
 
     @Test
@@ -72,7 +87,7 @@ class CourseServiceTest {
         when(courseInstructorRepository.findByCourseId(any())).thenReturn(List.of());
 
         CourseResponse response =
-                courseService.create(new CourseCreateRequest("Curso de Java", null, "desc", null), principal);
+                courseService.create(new CourseCreateRequest("Curso de Java", null, "desc", null, null), principal);
 
         assertThat(response.slug()).isEqualTo("curso-de-java");
         assertThat(response.status()).isEqualTo("DRAFT");
@@ -91,7 +106,7 @@ class CourseServiceTest {
         when(courseInstructorRepository.findByCourseId(any())).thenReturn(List.of());
 
         CourseResponse response =
-                courseService.create(new CourseCreateRequest("Curso de Java", null, null, null), principal);
+                courseService.create(new CourseCreateRequest("Curso de Java", null, null, null, null), principal);
 
         assertThat(response.slug()).isEqualTo("curso-de-java-2");
     }
@@ -107,7 +122,7 @@ class CourseServiceTest {
 
         CourseUpdateRequest request =
                 new CourseUpdateRequest(
-                        "Novo título", null, null, java.math.BigDecimal.TEN, null, null, true, null);
+                        "Novo título", null, null, java.math.BigDecimal.TEN, null, null, null, true, null);
 
         assertThatThrownBy(() -> courseService.update(course.getId(), request, principal))
                 .isInstanceOf(ForbiddenOperationException.class);
@@ -118,7 +133,7 @@ class CourseServiceTest {
         when(courseRepository.findActiveById(any())).thenReturn(Optional.empty());
         CustomUserDetails principal = new CustomUserDetails(userWithRole(RoleCode.SUPER_ADMIN));
         CourseUpdateRequest request =
-                new CourseUpdateRequest("Titulo", null, null, java.math.BigDecimal.ONE, null, null, true, null);
+                new CourseUpdateRequest("Titulo", null, null, java.math.BigDecimal.ONE, null, null, null, true, null);
 
         assertThatThrownBy(() -> courseService.update(UUID.randomUUID(), request, principal))
                 .isInstanceOf(NotFoundException.class);
@@ -206,6 +221,31 @@ class CourseServiceTest {
         CourseResponse response = courseService.get(course.getId(), principal);
 
         assertThat(response.status()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
+    void list_withQuery_delegatesToSearchForInstructor() {
+        User instructor = userWithRole(RoleCode.INSTRUCTOR);
+        CustomUserDetails principal = new CustomUserDetails(instructor);
+        when(courseRepository.searchAllActiveByInstructor(eq(instructor.getId()), eq("dados"), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        courseService.list(org.springframework.data.domain.Pageable.unpaged(), principal, "  dados  ");
+
+        verify(courseRepository).searchAllActiveByInstructor(eq(instructor.getId()), eq("dados"), any());
+        verify(courseRepository, never()).findAllActiveByInstructor(any(), any());
+    }
+
+    @Test
+    void list_withQuery_delegatesToEnrollmentSearchForStudent() {
+        User student = userWithRole(RoleCode.STUDENT);
+        CustomUserDetails principal = new CustomUserDetails(student);
+        when(courseRepository.searchActiveByStudentEnrollment(eq(student.getId()), eq("estrutura"), any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        courseService.list(org.springframework.data.domain.Pageable.unpaged(), principal, "estrutura");
+
+        verify(courseRepository).searchActiveByStudentEnrollment(eq(student.getId()), eq("estrutura"), any());
     }
 
     private Course sampleCourse() {

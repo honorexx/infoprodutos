@@ -5,13 +5,12 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { cn } from "@/lib/utils";
-import { primaryNavigation, upcomingNavigation, filterNavByRole } from "@/config/navigation";
-import { LogoMark } from "@/components/logo";
-import { Badge } from "@/components/ui/badge";
+import { cn, getInitials } from "@/lib/utils";
+import { primaryNavigation, filterNavByRole } from "@/config/navigation";
+import { SidebarBrand } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 
-/** Navegação em drawer para telas pequenas, com os mesmos itens da sidebar de desktop. */
+/** Drawer mobile — mesmos itens e tokens da sidebar navy. */
 export function MobileNavigation({
   open,
   onClose,
@@ -27,7 +26,7 @@ export function MobileNavigation({
   if (!user) return null;
 
   const primary = filterNavByRole(primaryNavigation, hasRole);
-  const upcoming = filterNavByRole(upcomingNavigation, hasRole);
+  const initials = getInitials(user.name);
 
   return (
     <AnimatePresence>
@@ -38,93 +37,84 @@ export function MobileNavigation({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18 }}
-            className="absolute inset-0 bg-navy-950/70"
+            className="absolute inset-0 bg-navy-950/75"
             onClick={onClose}
+            aria-hidden
           />
           <motion.aside
-            initial={{ x: -280 }}
+            initial={{ x: -300 }}
             animate={{ x: 0 }}
-            exit={{ x: -280 }}
+            exit={{ x: -300 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="relative flex w-[280px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+            className="relative flex w-[min(300px,88vw)] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu"
           >
-            <div className="flex items-center justify-between gap-2 border-b border-sidebar-border/60 px-3 py-3.5">
-              <LogoMark variant="ink" className="size-11" />
+            <div className="flex items-center justify-between gap-2 border-b border-sidebar-border px-4 py-3.5">
+              <SidebarBrand />
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={onClose}
                 aria-label="Fechar menu"
-                className="text-sidebar-foreground hover:bg-primary-hover hover:text-sidebar-foreground"
               >
                 <X className="size-4" />
               </Button>
             </div>
 
-            <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-2">
-              <div className="flex flex-col gap-0.5">
-                {primary.map((item) => {
-                  const Icon = item.icon;
-                  const active = pathname === item.href || pathname.startsWith(item.href + "/");
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={onClose}
-                      aria-current={active ? "page" : undefined}
-                      className={cn(
-                        "flex items-center gap-3 rounded-md border-l-2 px-2.5 py-2.5 text-sm font-medium transition-colors",
-                        active
-                          ? "border-navy-950 bg-sidebar-accent text-sidebar-foreground"
-                          : "border-transparent text-sidebar-muted hover:bg-primary-hover hover:text-sidebar-foreground",
-                      )}
-                    >
-                      <Icon className={cn("size-4 shrink-0", active && "text-navy-950")} />
-                      {item.label}
-                    </Link>
-                  );
-                })}
+            <div className="flex items-center gap-3 border-b border-sidebar-border px-4 py-4">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary-soft-foreground">
+                {initials}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{user.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
               </div>
+            </div>
 
-              {upcoming.length > 0 && (
-                <div className="flex flex-col gap-0.5">
-                  <p className="px-2.5 pb-1 text-[10px] font-semibold tracking-[0.14em] text-sidebar-muted/80 uppercase">
-                    Próximas fases
-                  </p>
-                  {upcoming.map((item) => {
-                    const Icon = item.icon;
-                    return (
+            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-2 py-3" aria-label="Principal">
+              {primary.map((item) => {
+                const Icon = item.icon;
+                const active =
+                  pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+                return (
+                  <Link
+                    key={`${item.label}-${item.href}`}
+                    href={item.href}
+                    onClick={onClose}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-muted-foreground hover:bg-sidebar-item-hover hover:text-foreground",
+                    )}
+                  >
+                    {active && (
                       <span
-                        key={item.label}
-                        aria-disabled="true"
-                        className="flex items-center justify-between gap-2 rounded-md px-2.5 py-2.5 text-sm font-medium text-sidebar-muted/70"
-                      >
-                        <span className="flex items-center gap-3">
-                          <Icon className="size-4 shrink-0" />
-                          {item.label}
-                        </span>
-                        <Badge
-                          variant="secondary"
-                          className="border-sidebar-border bg-navy-950/10 text-sidebar-muted"
-                        >
-                          Em breve
-                        </Badge>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
+                        aria-hidden
+                        className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-primary"
+                      />
+                    )}
+                    <Icon className={cn("size-4", active && "text-primary-hover")} />
+                    {item.label}
+                  </Link>
+                );
+              })}
             </nav>
 
             <div className="border-t border-sidebar-border p-3">
               <Button
                 variant="ghost"
-                size="sm"
-                onClick={onLogout}
-                className="w-full justify-start gap-2 text-sidebar-muted hover:bg-primary-hover hover:text-sidebar-foreground"
+                className="w-full justify-start gap-2 text-muted-foreground"
+                onClick={() => {
+                  onClose();
+                  onLogout();
+                }}
               >
-                <LogOut className="size-4" />
-                Sair
+                <LogOut className="size-4" /> Sair
               </Button>
             </div>
           </motion.aside>

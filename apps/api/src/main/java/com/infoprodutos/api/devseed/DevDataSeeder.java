@@ -35,11 +35,11 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Cria usuários mínimos de desenvolvimento (um por papel) de forma segura:
  * - Só executa com o perfil "dev" ativo (nunca em "prod").
- * - Nenhuma senha fica hardcoded no código-fonte: vêm exclusivamente de
- *   variáveis de ambiente (DEV_SEED_*), documentadas em apps/api/.env.example.
- * - Se as variáveis não forem fornecidas, o seed correspondente é
- *   simplesmente pulado (com aviso em log), em vez de usar um valor padrão.
- * - É idempotente: não duplica usuários já existentes.
+ * - Credenciais vêm de {@code app.dev-seed.*} (defaults em {@code application-dev.yml},
+ *   sobrescrevíveis por {@code DEV_SEED_*} / {@code apps/api/.env}).
+ * - Se e-mail ou senha estiverem em branco, o seed daquele papel é pulado.
+ * - Idempotente: não duplica usuários; se já existir, sincroniza a senha com a config
+ *   atual (útil quando a senha local mudou entre reinícios).
  *
  * Ver docs/SECURITY.md secao 8 e docs/DECISIONS.md.
  */
@@ -72,7 +72,24 @@ public class DevDataSeeder implements CommandLineRunner {
         seedUser("INSTRUCTOR", "Professor (dev)", devSeedProperties.getInstructorEmail(), devSeedProperties.getInstructorPassword(), RoleCode.INSTRUCTOR);
         seedUser("STUDENT", "Aluno (dev)", devSeedProperties.getStudentEmail(), devSeedProperties.getStudentPassword(), RoleCode.STUDENT);
         seedSampleCourses();
+        seedDefaultPricesIfMissing();
         seedStudentEnrollment();
+    }
+
+    /** Garante preço demo em cursos publicados com price_cents = 0 (bancos já existentes). */
+    private void seedDefaultPricesIfMissing() {
+        var published = courseRepository.findAll().stream()
+                .filter(c -> c.getDeletedAt() == null && c.getStatus() == CourseStatus.PUBLISHED && c.getPriceCents() <= 0)
+                .toList();
+        long[] defaults = {99700L, 149700L, 49700L, 79700L};
+        int i = 0;
+        for (Course c : published) {
+            c.setPriceCents(defaults[i % defaults.length]);
+            c.setCurrency("BRL");
+            courseRepository.save(c);
+            log.info("Preço demo aplicado ao curso '{}': {} centavos", c.getTitle(), c.getPriceCents());
+            i++;
+        }
     }
 
     /** Curso(s) de exemplo para o professor dev poder ver o construtor curricular funcionando. */
@@ -90,6 +107,8 @@ public class DevDataSeeder implements CommandLineRunner {
         course.setDescription("Um curso introdutório sobre estratégias de marketing digital para infoprodutores.");
         course.setStatus(CourseStatus.PUBLISHED);
         course.setPublishedAt(Instant.now());
+        course.setPriceCents(49700L);
+        course.setCurrency("BRL");
         course = courseRepository.save(course);
         courseInstructorRepository.save(new CourseInstructor(course, instructor, true));
 
@@ -115,6 +134,8 @@ public class DevDataSeeder implements CommandLineRunner {
 
         Course draftCourse = new Course("Copywriting para Lançamentos", Slugifier.slugify("Copywriting para Lançamentos"), instructor);
         draftCourse.setDescription("Rascunho em construção - técnicas de copywriting aplicadas a lançamentos de infoprodutos.");
+        draftCourse.setPriceCents(79700L);
+        draftCourse.setCurrency("BRL");
         draftCourse = courseRepository.save(draftCourse);
         courseInstructorRepository.save(new CourseInstructor(draftCourse, instructor, true));
 
@@ -156,8 +177,16 @@ public class DevDataSeeder implements CommandLineRunner {
                     label);
             return;
         }
-        if (userRepository.existsByEmailIgnoreCase(email)) {
-            log.info("Usuário dev '{}' já existe ({}), seed ignorado.", label, email);
+        var existing = userRepository.findActiveByEmailIgnoreCase(email);
+        if (existing.isPresent()) {
+            User user = existing.get();
+            if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
+                user.setPasswordHash(passwordEncoder.encode(rawPassword));
+                userRepository.save(user);
+                log.info("Usuário dev '{}' ({}): senha sincronizada com a configuração local.", label, email);
+            } else {
+                log.info("Usuário dev '{}' já existe ({}), seed ignorado.", label, email);
+            }
             return;
         }
         Role role = roleRepository

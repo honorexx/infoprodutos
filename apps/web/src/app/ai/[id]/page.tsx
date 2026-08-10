@@ -4,14 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import {
-  ArrowLeft,
-  Check,
-  Loader2,
-  Quote,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Check, Loader2, Quote, X } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { StatusBadge } from "@/components/status-badge";
@@ -38,6 +31,12 @@ function pipelineProgress(status: string) {
   const idx = PIPELINE.findIndex((p) => p.status === status);
   if (idx < 0) return 10;
   return Math.round(((idx + 1) / PIPELINE.length) * 100);
+}
+
+function reviewBadgeStatus(review: AiReview) {
+  if (review.reviewStatus === "PENDING") return "AWAITING_REVIEW";
+  if (review.reviewStatus === "REJECTED") return "FAILED";
+  return review.questionStatus;
 }
 
 function AiJobDetailContent() {
@@ -135,7 +134,7 @@ function AiJobDetailContent() {
 
   if (!job) {
     return (
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6 sm:p-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4 sm:p-6 lg:p-8">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-40 w-full" />
       </div>
@@ -143,13 +142,14 @@ function AiJobDetailContent() {
   }
 
   const running = ["PENDING", "TRANSCRIBING", "TRANSCRIBED", "GENERATING"].includes(job.status);
+  const currentIdx = PIPELINE.findIndex((p) => p.status === job.status);
 
   return (
     <motion.div
       variants={fadeIn}
       initial="hidden"
       animate="visible"
-      className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8"
+      className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 p-4 sm:p-6 lg:p-8"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -159,7 +159,9 @@ function AiJobDetailContent() {
           >
             <ArrowLeft className="size-3.5" /> Processamentos
           </Link>
-          <h1 className="mt-2 font-serif text-2xl font-medium tracking-tight">Revisão de questões</h1>
+          <h1 className="mt-2 font-heading text-2xl font-medium tracking-tight">
+            Revisão de questões
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             A IA propõe. Você decide. Evidências ligadas à transcrição.
           </p>
@@ -167,67 +169,67 @@ function AiJobDetailContent() {
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={job.status} />
           {pendingCount > 0 && (
-            <Button variant="accent" size="sm" disabled={busy} onClick={() => void bulkApprove()}>
+            <Button size="sm" disabled={busy} onClick={() => void bulkApprove()}>
               Aprovar pendentes ({pendingCount})
             </Button>
           )}
         </div>
       </div>
 
-      <div className="rounded-lg border border-border/70 bg-sidebar p-5 text-sidebar-foreground">
+      <section className="rounded-md border border-border bg-navy-950 p-4 text-sidebar-foreground sm:p-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm">
-            <Sparkles className="size-4 text-sidebar-primary" />
-            <span className="font-medium">Pipeline</span>
-            {running && <Loader2 className="size-3.5 animate-spin text-sidebar-muted" />}
+            <span className="font-medium text-primary-soft-foreground">Pipeline</span>
+            {running && <Loader2 className="size-3.5 animate-spin text-primary" />}
           </div>
-          <span className="text-xs text-sidebar-muted">
+          <span className="font-mono text-[11px] text-sidebar-muted">
             {job.provider ?? "—"} · {job.requestedQuestionCount} solicitadas
           </span>
         </div>
         <ProgressBar
           value={pipelineProgress(job.status)}
-          trackClassName="bg-sidebar-accent"
-          indicatorClassName="bg-sidebar-primary"
+          trackClassName="bg-navy-800"
+          indicatorClassName="bg-primary"
           aria-label="Progresso do job de IA"
         />
-        <div className="mt-3 flex flex-wrap gap-2">
-          {PIPELINE.map((step) => {
+        <ol className="mt-4 flex flex-wrap gap-1.5">
+          {PIPELINE.map((step, idx) => {
             const active = job.status === step.status;
-            const done =
-              PIPELINE.findIndex((p) => p.status === job.status) >
-              PIPELINE.findIndex((p) => p.status === step.status);
+            const done = currentIdx > idx;
             return (
-              <span
+              <li
                 key={step.status}
                 className={cn(
-                  "rounded-md px-2 py-1 text-[11px] font-medium",
-                  active && "bg-sidebar-accent text-sidebar-accent-foreground",
-                  done && !active && "text-sidebar-primary",
-                  !done && !active && "text-sidebar-muted",
+                  "rounded-sm border px-2 py-1 text-[11px] font-medium",
+                  active && "border-border-gold-active bg-primary-soft text-primary-soft-foreground",
+                  done && !active && "border-transparent text-primary",
+                  !done && !active && "border-transparent text-sidebar-muted",
                 )}
               >
+                <span className="mr-1.5 font-mono opacity-60">
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
                 {step.label}
-              </span>
+              </li>
             );
           })}
-        </div>
+        </ol>
         {job.errorMessage && <p className="mt-3 text-sm text-danger">{job.errorMessage}</p>}
-      </div>
+      </section>
 
       {reviews.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/70 px-6 py-12 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
           {running
-            ? "A IA está trabalhando. As questões aparecem aqui quando o lote estiver pronto para revisão."
+            ? "Processando. As questões aparecem aqui quando o lote estiver pronto para revisão."
             : "Nenhuma questão neste job."}
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
           <motion.ul
             variants={staggerContainer}
             initial="hidden"
             animate="visible"
-            className="flex flex-col gap-1"
+            className="flex max-h-[70vh] flex-col gap-0.5 overflow-y-auto rounded-md border border-border p-1.5"
           >
             {reviews.map((review, index) => (
               <motion.li key={review.questionId} variants={staggerItem}>
@@ -235,26 +237,28 @@ function AiJobDetailContent() {
                   type="button"
                   onClick={() => setSelectedId(review.questionId)}
                   className={cn(
-                    "flex w-full flex-col gap-1 rounded-md border px-3 py-2.5 text-left transition-colors",
+                    "flex w-full flex-col gap-1 rounded-sm border px-2.5 py-2 text-left transition-colors",
                     selectedId === review.questionId
-                      ? "border-primary/40 bg-primary-soft"
-                      : "border-transparent hover:bg-muted/50",
+                      ? "border-border-gold-active bg-primary-soft"
+                      : "border-transparent hover:bg-surface-hover",
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      Questão {index + 1}
+                    <span className="font-mono text-[10px] text-primary">
+                      {String(index + 1).padStart(2, "0")}
                     </span>
-                    <StatusBadge status={review.reviewStatus === "PENDING" ? "AWAITING_REVIEW" : review.questionStatus} />
+                    <StatusBadge status={reviewBadgeStatus(review)} className="scale-90 origin-right" />
                   </div>
-                  <span className="line-clamp-2 text-sm font-medium">{review.statement}</span>
+                  <span className="line-clamp-2 text-xs font-medium leading-snug">
+                    {review.statement}
+                  </span>
                 </button>
               </motion.li>
             ))}
           </motion.ul>
 
           {selected && (
-            <div className="flex flex-col gap-5 rounded-lg border border-border/70 bg-surface-elevated p-5 sm:p-6">
+            <div className="flex flex-col gap-5 rounded-md border border-border bg-surface p-4 sm:p-6">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={selected.difficulty} />
@@ -262,7 +266,7 @@ function AiJobDetailContent() {
                     <span className="text-xs text-muted-foreground">{selected.topic}</span>
                   )}
                 </div>
-                <h2 className="mt-3 font-serif text-xl leading-snug font-medium tracking-tight">
+                <h2 className="mt-3 font-heading text-xl leading-snug font-medium tracking-tight">
                   {selected.statement}
                 </h2>
               </div>
@@ -274,16 +278,16 @@ function AiJobDetailContent() {
                     className={cn(
                       "rounded-md border px-3 py-2.5 text-sm",
                       opt.correct
-                        ? "border-primary/35 bg-primary-soft text-primary-soft-foreground"
-                        : "border-border/70",
+                        ? "border-border-gold-active bg-primary-soft text-primary-soft-foreground"
+                        : "border-border",
                     )}
                   >
-                    <span className="mr-2 text-xs font-semibold text-muted-foreground">
+                    <span className="mr-2 font-mono text-xs text-muted-foreground">
                       {String.fromCharCode(65 + opt.orderIndex)}.
                     </span>
                     {opt.text}
                     {opt.correct && (
-                      <span className="ml-2 text-[11px] font-semibold tracking-wide text-primary uppercase">
+                      <span className="ml-2 text-[11px] font-medium tracking-wide text-primary uppercase">
                         correta
                       </span>
                     )}
@@ -293,34 +297,34 @@ function AiJobDetailContent() {
 
               {selected.explanation && (
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.12em] text-muted-foreground uppercase">
+                  <p className="text-[0.625rem] font-medium tracking-[0.12em] text-subtle-foreground uppercase">
                     Explicação
                   </p>
                   <p className="mt-1.5 text-sm text-muted-foreground">{selected.explanation}</p>
                 </div>
               )}
 
-              {typeof selected.evidence?.excerpt === "string" && selected.evidence.excerpt.length > 0 ? (
-                <blockquote className="relative rounded-md border border-accent/30 bg-muted/40 px-4 py-3">
-                  <Quote className="absolute top-3 right-3 size-4 text-accent/50" />
-                  <p className="text-xs font-semibold tracking-[0.12em] text-accent uppercase">
+              {typeof selected.evidence?.excerpt === "string" &&
+              selected.evidence.excerpt.length > 0 ? (
+                <blockquote className="relative rounded-md border border-border-gold bg-background-secondary px-4 py-3">
+                  <Quote className="absolute top-3 right-3 size-4 text-primary/40" />
+                  <p className="text-[0.625rem] font-medium tracking-[0.12em] text-primary uppercase">
                     Evidência na transcrição
                   </p>
-                  <p className="mt-2 font-serif text-sm leading-relaxed italic">
+                  <p className="mt-2 font-heading text-sm leading-relaxed italic">
                     “{selected.evidence.excerpt}”
                   </p>
-                  <p className="mt-2 text-[11px] text-muted-foreground">
+                  <p className="mt-2 font-mono text-[11px] text-muted-foreground">
                     {String(selected.evidence.startTimeSeconds ?? "—")}s –{" "}
                     {String(selected.evidence.endTimeSeconds ?? "—")}s
                   </p>
                 </blockquote>
               ) : null}
 
-              <div className="flex flex-wrap gap-2 border-t border-border/70 pt-4">
+              <div className="flex flex-wrap gap-2 border-t border-border pt-4">
                 {selected.reviewStatus === "PENDING" && (
                   <>
                     <Button
-                      variant="accent"
                       size="sm"
                       disabled={busy}
                       onClick={() => void approve(selected.questionId)}
@@ -341,7 +345,6 @@ function AiJobDetailContent() {
                 )}
                 {selected.questionStatus === "APPROVED" && (
                   <Button
-                    variant="default"
                     size="sm"
                     disabled={busy}
                     onClick={() => void publish(selected.questionId)}

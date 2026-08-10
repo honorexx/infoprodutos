@@ -42,6 +42,11 @@ public class VideoService {
     private static final Set<String> ALLOWED_MIME = Set.of(
             "video/mp4", "video/webm", "video/quicktime", "video/x-msvideo", "application/octet-stream");
 
+    private static final Set<String> ALLOWED_THUMBNAIL_MIME =
+            Set.of("image/jpeg", "image/jpg", "image/png", "image/webp");
+
+    private static final long MAX_THUMBNAIL_BYTES = 5L * 1024 * 1024;
+
     private final VideoAssetRepository videoAssetRepository;
     private final LessonRepository lessonRepository;
     private final LessonService lessonService;
@@ -72,7 +77,8 @@ public class VideoService {
     }
 
     @Transactional
-    public VideoAssetResponse uploadBinary(UUID videoId, MultipartFile file, CustomUserDetails principal) {
+    public VideoAssetResponse uploadBinary(
+            UUID videoId, MultipartFile file, MultipartFile thumbnail, CustomUserDetails principal) {
         VideoAsset asset = findOrThrow(videoId);
         if (asset.getLessonId() == null) {
             throw new BadRequestException("Vídeo sem aula associada.");
@@ -87,9 +93,17 @@ public class VideoService {
             markFailed(asset, "Arquivo vazio.");
             throw new BadRequestException("Arquivo de vídeo obrigatório.");
         }
+        if (thumbnail == null || thumbnail.isEmpty()) {
+            markFailed(asset, "Thumbnail ausente.");
+            throw new BadRequestException("Thumbnail obrigatória. Envie uma imagem (JPG, PNG ou WebP).");
+        }
         if (file.getSize() > storageProperties.maxFileBytes()) {
             markFailed(asset, "Arquivo excede o tamanho máximo permitido.");
             throw new BadRequestException("Arquivo excede o tamanho máximo permitido.");
+        }
+        if (thumbnail.getSize() > MAX_THUMBNAIL_BYTES) {
+            markFailed(asset, "Thumbnail excede o tamanho máximo permitido.");
+            throw new BadRequestException("Thumbnail excede 5 MB. Envie uma imagem menor.");
         }
 
         String contentType = file.getContentType() != null ? file.getContentType() : "application/octet-stream";
@@ -98,21 +112,41 @@ public class VideoService {
             throw new BadRequestException("Tipo de arquivo não suportado. Envie um vídeo (ex.: MP4).");
         }
 
+        String thumbType;
+        try {
+            thumbType = resolveThumbnailContentType(thumbnail);
+        } catch (BadRequestException e) {
+            markFailed(asset, "Tipo de thumbnail não suportado.");
+            throw e;
+        }
+
         asset.setUploadStatus(UploadStatus.UPLOADING);
         videoAssetRepository.save(asset);
 
-        try (InputStream in = file.getInputStream()) {
+        try (InputStream in = file.getInputStream();
+                InputStream thumbIn = thumbnail.getInputStream()) {
             var stored = storageProvider.store(
                     "lessons/" + lesson.getId(),
                     file.getOriginalFilename(),
                     contentType,
                     in,
                     file.getSize());
+            var thumbStored = storageProvider.store(
+                    "lessons/" + lesson.getId() + "/thumbnails",
+                    thumbnail.getOriginalFilename() != null
+                            ? thumbnail.getOriginalFilename()
+                            : "thumbnail.jpg",
+                    thumbType,
+                    thumbIn,
+                    thumbnail.getSize());
+
             asset.setStorageKey(stored.storageKey());
             asset.setSizeBytes(stored.sizeBytes());
             asset.setChecksum(stored.checksum());
             asset.setOriginalFilename(file.getOriginalFilename());
             asset.setMimeType(contentType);
+            asset.setThumbnailStorageKey(thumbStored.storageKey());
+            asset.setThumbnailMimeType(thumbType);
             asset.setUploadStatus(UploadStatus.UPLOADED);
             asset.setProcessingStatus(ProcessingStatus.READY);
             asset.setFailureReason(null);
@@ -134,6 +168,58 @@ public class VideoService {
             log.warn("Falha no upload do vídeo {}: {}", videoId, e.getClass().getSimpleName());
             markFailed(asset, "Falha ao armazenar o vídeo.");
             throw new BadRequestException("Não foi possível concluir o upload do vídeo.");
+        }
+    }
+
+    /**
+     * Define ou troca a thumbnail de um vídeo já enviado (sem reenviar o arquivo de vídeo).
+     * Necessário para aulas antigas que foram publicadas antes da thumbnail obrigatória.
+     */
+    @Transactional
+    public VideoAssetResponse uploadThumbnail(
+            UUID videoId, MultipartFile thumbnail, CustomUserDetails principal) {
+        VideoAsset asset = findOrThrow(videoId);
+        Lesson lesson = requireManageForAsset(asset, principal);
+
+        if (asset.getUploadStatus() != UploadStatus.UPLOADED) {
+            throw new BadRequestException("Envie o vídeo antes de definir a thumbnail.");
+        }
+        if (thumbnail == null || thumbnail.isEmpty()) {
+            throw new BadRequestException("Arquivo de thumbnail obrigatório.");
+        }
+        if (thumbnail.getSize() > MAX_THUMBNAIL_BYTES) {
+            throw new BadRequestException("Thumbnail excede 5 MB. Envie uma imagem menor.");
+        }
+
+        String thumbType = resolveThumbnailContentType(thumbnail);
+        try (InputStream thumbIn = thumbnail.getInputStream()) {
+            String oldKey = asset.getThumbnailStorageKey();
+            var thumbStored = storageProvider.store(
+                    "lessons/" + lesson.getId() + "/thumbnails",
+                    thumbnail.getOriginalFilename() != null
+                            ? thumbnail.getOriginalFilename()
+                            : "thumbnail.jpg",
+                    thumbType,
+                    thumbIn,
+                    thumbnail.getSize());
+            asset.setThumbnailStorageKey(thumbStored.storageKey());
+            asset.setThumbnailMimeType(thumbType);
+            asset = videoAssetRepository.save(asset);
+            if (oldKey != null && !oldKey.isBlank()) {
+                try {
+                    storageProvider.delete(oldKey);
+                } catch (Exception ignored) {
+                    // best-effort cleanup
+                }
+            }
+            auditService.record(principal.getId(), "VIDEO_THUMBNAIL_UPLOADED", "VideoAsset", asset.getId(), null);
+            return VideoAssetResponse.from(asset);
+        } catch (BadRequestException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BadRequestException(
+                    "Não foi possível salvar a thumbnail: "
+                            + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
         }
     }
 
@@ -168,7 +254,16 @@ public class VideoService {
                 videoId,
                 signed.expiresAt(),
                 signed.signature());
-        return new StreamUrlResponse(url, signed.expiresAt(), signed.ttlSeconds());
+        String thumbnailUrl = null;
+        if (asset.getThumbnailStorageKey() != null && !asset.getThumbnailStorageKey().isBlank()) {
+            thumbnailUrl = String.format(
+                    "%s/api/v1/videos/%s/thumbnail?expires=%d&sig=%s",
+                    base,
+                    videoId,
+                    signed.expiresAt(),
+                    signed.signature());
+        }
+        return new StreamUrlResponse(url, thumbnailUrl, signed.expiresAt(), signed.ttlSeconds());
     }
 
     private String resolvePublicBaseUrl(jakarta.servlet.http.HttpServletRequest request) {
@@ -198,6 +293,26 @@ public class VideoService {
                 : MediaType.APPLICATION_OCTET_STREAM;
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .contentType(mediaType)
+                .body(new InputStreamResource(in));
+    }
+
+    @Transactional(readOnly = true)
+    public ResponseEntity<InputStreamResource> thumbnail(UUID videoId, long expires, String sig) {
+        if (!streamUrlSigner.isValid(videoId, expires, sig)) {
+            throw new ForbiddenOperationException("URL de thumbnail inválida ou expirada.");
+        }
+        VideoAsset asset = findOrThrow(videoId);
+        if (asset.getThumbnailStorageKey() == null || asset.getThumbnailStorageKey().isBlank()) {
+            throw new NotFoundException("Thumbnail não disponível.");
+        }
+        InputStream in = storageProvider.open(asset.getThumbnailStorageKey());
+        MediaType mediaType = asset.getThumbnailMimeType() != null
+                ? MediaType.parseMediaType(asset.getThumbnailMimeType())
+                : MediaType.IMAGE_JPEG;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .header(HttpHeaders.CACHE_CONTROL, "private, max-age=300")
                 .contentType(mediaType)
                 .body(new InputStreamResource(in));
     }
@@ -247,6 +362,33 @@ public class VideoService {
         asset.setProcessingStatus(ProcessingStatus.FAILED);
         asset.setFailureReason(reason);
         videoAssetRepository.save(asset);
+    }
+
+    private static String resolveThumbnailContentType(MultipartFile thumbnail) {
+        String thumbType =
+                thumbnail.getContentType() != null ? thumbnail.getContentType().toLowerCase() : "";
+        String thumbName =
+                thumbnail.getOriginalFilename() != null
+                        ? thumbnail.getOriginalFilename().toLowerCase()
+                        : "";
+        boolean thumbOk = ALLOWED_THUMBNAIL_MIME.contains(thumbType)
+                || thumbName.endsWith(".jpg")
+                || thumbName.endsWith(".jpeg")
+                || thumbName.endsWith(".png")
+                || thumbName.endsWith(".webp");
+        if (!thumbOk) {
+            throw new BadRequestException("Thumbnail inválida. Use JPG, PNG ou WebP.");
+        }
+        if (thumbType.isBlank() || !ALLOWED_THUMBNAIL_MIME.contains(thumbType)) {
+            if (thumbName.endsWith(".png")) {
+                return "image/png";
+            }
+            if (thumbName.endsWith(".webp")) {
+                return "image/webp";
+            }
+            return "image/jpeg";
+        }
+        return thumbType;
     }
 
     private static String trimTrailingSlash(String url) {

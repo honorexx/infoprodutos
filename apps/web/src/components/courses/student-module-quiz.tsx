@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ClipboardCheck } from "lucide-react";
+import { Check, ClipboardCheck, X } from "lucide-react";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import type { QuizAttempt, QuizTake } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,6 @@ export function StudentModuleQuiz({ moduleId }: { moduleId: string }) {
     setLoading(true);
     setMissing(false);
     try {
-      // Descobre o quiz via endpoint staff/aluno do módulo
       const detail = await apiFetch<{ id: string | null; status: string; publishedQuestionCount: number }>(
         `/modules/${moduleId}/quiz`,
       );
@@ -112,41 +111,40 @@ export function StudentModuleQuiz({ moduleId }: { moduleId: string }) {
     }
   }
 
-  if (loading) return <Skeleton className="h-20 w-full" />;
+  if (loading) return <Skeleton className="h-24 w-full" />;
   if (missing || !take) return null;
 
   const inProgress = attempt?.status === "IN_PROGRESS";
   const graded = attempt && attempt.status !== "IN_PROGRESS";
 
   return (
-    <div className="rounded-md border border-border/70 bg-surface-elevated p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <ClipboardCheck className="size-4 text-muted-foreground" />
-        <p className="text-sm font-medium">{take.title}</p>
-        <Badge variant="outline" className="text-[10px]">
+    <section className="rounded-md border border-border bg-surface p-5 sm:p-6">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <ClipboardCheck className="size-4 text-primary" />
+        <h3 className="font-heading text-lg font-medium tracking-tight">{take.title}</h3>
+        <Badge variant="outline" className="normal-case tracking-normal">
           {take.attemptsUsed}
           {take.maxAttempts != null ? `/${take.maxAttempts}` : ""} tentativas
         </Badge>
       </div>
 
       {!inProgress && !graded && (
-        <Button
-          size="sm"
-          disabled={pending || !take.canStartNewAttempt}
-          onClick={() => void start()}
-        >
+        <Button disabled={pending || !take.canStartNewAttempt} onClick={() => void start()}>
           {take.canStartNewAttempt ? "Iniciar exercício" : "Limite de tentativas atingido"}
         </Button>
       )}
 
       {inProgress && take.questions.length > 0 && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-8">
           {take.questions.map((q, idx) => (
-            <fieldset key={q.id} className="flex flex-col gap-2">
-              <legend className="text-sm font-medium">
-                {idx + 1}. {q.statement}
+            <fieldset key={q.id} className="flex flex-col gap-3">
+              <legend className="text-base font-medium text-foreground">
+                <span className="mr-2 font-mono text-sm text-primary">
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
+                {q.statement}
               </legend>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-2">
                 {q.options.map((opt) => {
                   const selected = selections[q.id] === opt.id;
                   return (
@@ -155,10 +153,10 @@ export function StudentModuleQuiz({ moduleId }: { moduleId: string }) {
                       type="button"
                       onClick={() => void selectOption(q.id, opt.id)}
                       className={cn(
-                        "rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                        "min-h-12 rounded-md border px-4 py-3 text-left text-sm transition-colors",
                         selected
-                          ? "border-primary bg-primary-soft text-primary-soft-foreground"
-                          : "border-border/70 hover:bg-muted/50",
+                          ? "border-border-gold-active bg-primary-soft text-primary-soft-foreground"
+                          : "border-border text-foreground hover:border-border-gold hover:bg-surface-hover",
                       )}
                     >
                       {opt.text}
@@ -175,29 +173,46 @@ export function StudentModuleQuiz({ moduleId }: { moduleId: string }) {
       )}
 
       {graded && attempt && (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm">
-            Nota: <strong>{attempt.score}%</strong>
-            {attempt.passed != null && (attempt.passed ? " — aprovado" : " — reprovado")}
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-muted-foreground">
+            Nota:{" "}
+            <span className="font-mono text-primary">{attempt.score}%</span>
+            {attempt.passed != null && (attempt.passed ? " — aprovado" : " — abaixo da média")}
           </p>
           {attempt.answers.map((a) => (
-            <div key={a.questionId} className="rounded-md border border-border/60 px-3 py-2 text-sm">
-              <p className="font-medium">{a.statement}</p>
-              <p className={a.correct ? "text-primary" : "text-destructive"}>
-                Sua resposta: {a.selectedOptionText ?? "—"} {a.correct ? "(correta)" : "(incorreta)"}
+            <div
+              key={a.questionId}
+              className={cn(
+                "rounded-md border px-4 py-3 text-sm",
+                a.correct ? "border-border-gold/40 bg-primary-soft/40" : "border-danger/30 bg-danger/5",
+              )}
+            >
+              <p className="flex items-start gap-2 font-medium">
+                {a.correct ? (
+                  <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                ) : (
+                  <X className="mt-0.5 size-4 shrink-0 text-danger" />
+                )}
+                {a.statement}
+              </p>
+              <p className="mt-2 pl-6 text-muted-foreground">
+                Sua resposta: {a.selectedOptionText ?? "—"}
+                <span className={a.correct ? " text-primary" : " text-danger"}>
+                  {a.correct ? " (correta)" : " (incorreta)"}
+                </span>
               </p>
               {a.explanation && (
-                <p className="mt-1 text-xs text-muted-foreground">{a.explanation}</p>
+                <p className="mt-2 pl-6 text-xs text-subtle-foreground">{a.explanation}</p>
               )}
             </div>
           ))}
           {take.canStartNewAttempt && (
-            <Button size="sm" variant="outline" disabled={pending} onClick={() => void start()}>
+            <Button variant="outline" disabled={pending} onClick={() => void start()}>
               Nova tentativa
             </Button>
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

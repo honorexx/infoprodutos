@@ -1,6 +1,7 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="ApiApplication (dev)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
     <option name="ACTIVE_PROFILES" value="dev" />
+    <option name="VM_PARAMETERS" value="-Dspring.config.import=optional:file:./apps/api/.env[.properties],optional:file:./.env[.properties]" />
     <envs>
       <env name="API_PUBLIC_BASE_URL" value="http://localhost:8090" />
       <env name="COOKIE_SECURE" value="false" />

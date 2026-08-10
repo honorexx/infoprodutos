@@ -35,8 +35,18 @@ public class Course extends AuditableEntity {
     @Column(name = "cover_image_url", length = 500)
     private String coverImageUrl;
 
+    @Column(name = "cover_mime_type", length = 100)
+    private String coverMimeType;
+
     @Column(name = "workload_hours", precision = 6, scale = 2)
     private BigDecimal workloadHours;
+
+    /** Preço em centavos (BRL). 0 = sem compra self-service (só grant manual). */
+    @Column(name = "price_cents", nullable = false)
+    private long priceCents = 0L;
+
+    @Column(name = "currency", nullable = false, length = 3)
+    private String currency = "BRL";
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)

@@ -40,6 +40,7 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
   const [summary, setSummary] = useState<ProgressSummary | null>(null);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [loadingStream, setLoadingStream] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [issuing, setIssuing] = useState(false);
@@ -121,6 +122,7 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
   useEffect(() => {
     if (!enrollment || !selectedLesson) {
       setStreamUrl(null);
+      setThumbnailUrl(null);
       return;
     }
 
@@ -131,13 +133,17 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
     async function openLesson() {
       setLoadingStream(true);
       setStreamUrl(null);
+      setThumbnailUrl(null);
       try {
         await apiFetch(`/enrollments/${enrollment!.id}/progress/lessons/${lessonId}/start`, {
           method: "POST",
         });
         if (videoAssetId) {
           const stream = await apiFetch<StreamUrl>(`/videos/${videoAssetId}/stream-url`);
-          if (!cancelled) setStreamUrl(stream.url);
+          if (!cancelled) {
+            setStreamUrl(stream.url);
+            setThumbnailUrl(stream.thumbnailUrl ?? null);
+          }
         }
         if (!cancelled) await refreshSummary();
       } catch (error) {
@@ -276,36 +282,103 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6 sm:p-8">
-      <div className="flex flex-col gap-3">
-        <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
-          <Link href="/my-courses">
-            <ArrowLeft className="size-4" />
-            Meus cursos
-          </Link>
-        </Button>
-        <div>
-          <h1 className="font-serif text-2xl font-medium tracking-tight">{summary.courseTitle}</h1>
-          <p className="text-sm text-muted-foreground">
-            {summary.completedLessons} de {summary.totalPublishedLessons} aulas concluídas (
-            {summary.courseCompletionPercent}%)
-          </p>
-          <Progress value={summary.courseCompletionPercent} className="mt-2 max-w-md" />
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-1 flex-col">
+      <div className="border-b border-border px-4 py-4 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3">
+          <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit text-muted-foreground">
+            <Link href="/my-courses">
+              <ArrowLeft className="size-4" />
+              Meus cursos
+            </Link>
+          </Button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[0.625rem] font-medium tracking-[0.16em] text-primary uppercase">
+                Curso
+              </p>
+              <h1 className="mt-1 font-heading text-2xl font-medium tracking-tight sm:text-3xl">
+                {summary.courseTitle}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {summary.completedLessons} de {summary.totalPublishedLessons} aulas ·{" "}
+                <span className="font-mono text-primary">{summary.courseCompletionPercent}%</span>
+              </p>
+            </div>
+            <Progress value={summary.courseCompletionPercent} className="h-px max-w-xs sm:w-64" />
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <div className="flex flex-col gap-4">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 gap-0 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="border-b border-border lg:border-r lg:border-b-0">
+          <div className="sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto p-4 sm:p-5">
+            <p className="mb-3 text-[0.625rem] font-medium tracking-[0.14em] text-subtle-foreground uppercase">
+              Módulos
+            </p>
+            <div className="flex flex-col gap-4">
+              {summary.modules.map((mod) => (
+                <div key={mod.moduleId}>
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <p className="text-xs font-medium text-foreground">{mod.moduleTitle}</p>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {mod.completedLessons}/{mod.totalPublishedLessons}
+                    </span>
+                  </div>
+                  <ul className="flex flex-col border-l border-border">
+                    {mod.lessons.map((lesson) => {
+                      const active = lesson.lessonId === selectedLessonId;
+                      const done = lesson.progressStatus === "COMPLETED";
+                      return (
+                        <li key={lesson.lessonId}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedLessonId(lesson.lessonId)}
+                            aria-current={active ? "true" : undefined}
+                            className={cn(
+                              "relative flex w-full items-start gap-2 py-2 pr-2 pl-3 text-left text-sm transition-colors",
+                              active
+                                ? "bg-primary-soft text-primary-soft-foreground"
+                                : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+                            )}
+                          >
+                            {active && (
+                              <span
+                                aria-hidden
+                                className="absolute top-1.5 bottom-1.5 left-0 w-0.5 bg-primary"
+                              />
+                            )}
+                            {done ? (
+                              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                            ) : active ? (
+                              <PlayCircle className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                            ) : (
+                              <Circle className="mt-0.5 size-3.5 shrink-0" />
+                            )}
+                            <span className="leading-snug">{lesson.title}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
           {selectedLesson ? (
             <>
               <div>
                 {currentModule && (
-                  <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  <p className="text-[0.625rem] font-medium tracking-[0.14em] text-primary uppercase">
                     {currentModule.moduleTitle}
                   </p>
                 )}
-                <h2 className="font-serif text-lg font-medium tracking-tight">{selectedLesson.title}</h2>
-                <p className="text-xs text-muted-foreground">
+                <h2 className="mt-2 font-heading text-xl font-medium tracking-tight sm:text-2xl">
+                  {selectedLesson.title}
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
                   Aula {selectedIndex + 1} de {flatLessons.length}
                   {" · "}
                   {selectedLesson.progressStatus === "COMPLETED"
@@ -317,18 +390,19 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
               </div>
 
               {loadingStream ? (
-                <Skeleton className="aspect-video w-full" />
+                <Skeleton className="aspect-video w-full rounded-md" />
               ) : streamUrl ? (
                 <video
                   ref={videoRef}
                   key={streamUrl}
                   src={streamUrl}
+                  poster={thumbnailUrl ?? undefined}
                   controls
-                  className="aspect-video w-full rounded-lg bg-navy-950"
+                  className="aspect-video w-full rounded-md border border-border bg-navy-950"
                   onEnded={() => void goToNextAfterComplete()}
                 />
               ) : (
-                <div className="flex aspect-video items-center justify-center rounded-lg border border-dashed border-border/70 bg-surface text-sm text-muted-foreground">
+                <div className="flex aspect-video items-center justify-center rounded-md border border-dashed border-border bg-surface text-sm text-muted-foreground">
                   {selectedLesson.currentVideoAssetId
                     ? "Não foi possível carregar o vídeo. Tente selecionar a aula de novo."
                     : "Esta aula ainda não tem vídeo. Você pode marcá-la como concluída e seguir."}
@@ -345,7 +419,7 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
                   Aula anterior
                 </Button>
                 {selectedLesson.progressStatus !== "COMPLETED" && (
-                  <Button variant="outline" onClick={() => void markComplete()}>
+                  <Button variant="secondary" onClick={() => void markComplete()}>
                     <CheckCircle2 className="size-4" />
                     Marcar como concluída
                   </Button>
@@ -369,102 +443,52 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
                 ) : null}
               </div>
 
-              {summary.canFinishCourse && (
-                <Button
-                  size="lg"
-                  className="h-14 w-full text-base"
-                  disabled={finishing}
-                  onClick={() => void finishCourse()}
-                >
-                  <CheckCircle2 className="size-5" />
-                  {finishing ? "Concluindo…" : "Concluir curso"}
-                </Button>
-              )}
-
-              {summary.canIssueCertificate && (
-                <Button
-                  size="lg"
-                  className="h-14 w-full text-base"
-                  disabled={issuing}
-                  onClick={() => void issueCertificate()}
-                >
-                  <Award className="size-5" />
-                  {issuing ? "Emitindo…" : "Emitir certificado"}
-                </Button>
-              )}
-
-              {summary.certificateId && !summary.canIssueCertificate && (
-                <Button asChild size="lg" variant="outline" className="h-14 w-full text-base">
-                  <Link href={`/my-certificates/${summary.certificateId}`}>
-                    <Award className="size-5" />
-                    Ver meu certificado
-                  </Link>
-                </Button>
-              )}
-
-              {summary.courseCompletedAt && !summary.canIssueCertificate && !summary.certificateId && (
-                <p className="rounded-lg border border-border/70 bg-surface px-4 py-3 text-sm text-muted-foreground">
-                  Curso concluído. Para emitir o certificado, o curso precisa ter carga horária
-                  definida e (se houver) exercícios de módulo aprovados. Ajuste no construtor do
-                  curso ou conclua os exercícios.
-                </p>
+              {(summary.canFinishCourse ||
+                summary.canIssueCertificate ||
+                summary.certificateId ||
+                summary.courseCompletedAt) && (
+                <div className="flex flex-col gap-3 border-t border-border pt-6">
+                  {summary.canFinishCourse && (
+                    <Button size="lg" disabled={finishing} onClick={() => void finishCourse()}>
+                      <CheckCircle2 className="size-4" />
+                      {finishing ? "Concluindo…" : "Concluir curso"}
+                    </Button>
+                  )}
+                  {summary.canIssueCertificate && (
+                    <Button size="lg" disabled={issuing} onClick={() => void issueCertificate()}>
+                      <Award className="size-4" />
+                      {issuing ? "Emitindo…" : "Emitir certificado"}
+                    </Button>
+                  )}
+                  {summary.certificateId && !summary.canIssueCertificate && (
+                    <Button asChild size="lg" variant="outline">
+                      <Link href={`/my-certificates/${summary.certificateId}`}>
+                        <Award className="size-4" />
+                        Ver meu certificado
+                      </Link>
+                    </Button>
+                  )}
+                  {summary.courseCompletedAt &&
+                    !summary.canIssueCertificate &&
+                    !summary.certificateId && (
+                      <p className="rounded-md border border-border bg-surface px-4 py-3 text-sm text-muted-foreground">
+                        Curso concluído. Para emitir o certificado, o curso precisa ter carga horária
+                        definida e (se houver) exercícios de módulo aprovados.
+                      </p>
+                    )}
+                </div>
               )}
 
               {currentModule && (
-                <StudentModuleQuiz key={currentModule.moduleId} moduleId={currentModule.moduleId} />
+                <div className="border-t border-border pt-6">
+                  <StudentModuleQuiz key={currentModule.moduleId} moduleId={currentModule.moduleId} />
+                </div>
               )}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">Nenhuma aula publicada neste curso.</p>
           )}
         </div>
-
-        <aside className="flex flex-col gap-4">
-          <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            Conteúdo do curso
-          </p>
-          {summary.modules.map((mod) => (
-            <div key={mod.moduleId} className="rounded-lg border border-border/70 bg-surface-elevated p-3">
-              <div className="mb-2 flex items-baseline justify-between gap-2">
-                <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                  {mod.moduleTitle}
-                </p>
-                <span className="text-[10px] text-muted-foreground">
-                  {mod.completedLessons}/{mod.totalPublishedLessons}
-                </span>
-              </div>
-              <ul className="flex flex-col gap-1">
-                {mod.lessons.map((lesson) => {
-                  const active = lesson.lessonId === selectedLessonId;
-                  const done = lesson.progressStatus === "COMPLETED";
-                  return (
-                    <li key={lesson.lessonId}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedLessonId(lesson.lessonId)}
-                        className={cn(
-                          "flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                          active
-                            ? "bg-primary-soft text-primary-soft-foreground"
-                            : "hover:bg-muted/60",
-                        )}
-                      >
-                        {done ? (
-                          <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />
-                        ) : active ? (
-                          <PlayCircle className="mt-0.5 size-4 shrink-0" />
-                        ) : (
-                          <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="leading-snug">{lesson.title}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </aside>
       </div>
     </div>
   );

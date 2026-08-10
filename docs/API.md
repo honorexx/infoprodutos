@@ -59,6 +59,11 @@ Esta é uma visão de alto nível dos grupos de endpoints; não é exaustiva de 
 | POST | `/auth/password/reset` | público (via token do e-mail) | Define nova senha |
 | POST | `/auth/password/change` | autenticado | Troca senha estando logado |
 | GET | `/auth/me` | autenticado | Retorna usuário atual + papéis |
+| GET | `/notifications` | autenticado | Lista notificações do usuário (`unreadCount` + `items`) |
+| POST | `/notifications/{id}/read` | autenticado | Marca uma notificação como lida |
+| POST | `/notifications/read-all` | autenticado | Marca todas como lidas |
+
+Eventos que geram notificação: cadastro (`WELCOME`), retorno ao login (`WELCOME_BACK`, no máx. 1×/dia), matrícula/acesso ao curso (aluno + professores do curso), certificado emitido.
 
 ### 2.2 Usuários (`/api/v1/users`)
 
@@ -75,7 +80,7 @@ Esta é uma visão de alto nível dos grupos de endpoints; não é exaustiva de 
 
 | Método | Rota | Papel | Descrição |
 |---|---|---|---|
-| GET | `/courses` | autenticado (escopo varia) | SUPER_ADMIN vê todos; INSTRUCTOR vê os seus; STUDENT vê cursos publicados/matriculados |
+| GET | `/courses` | autenticado (escopo varia) | SUPER_ADMIN vê todos; INSTRUCTOR vê os seus; STUDENT vê publicados. Query opcional `q`: casa o **início do título** ou o **início de uma palavra** do título (ex.: `dados` → “Estrutura de Dados”; `data` **não** casa “Digital”). Com `q`, aluno busca só entre cursos matriculados |
 | GET | `/courses/{id}` | conforme regra de acesso | Detalhe do curso |
 | POST | `/courses` | SUPER_ADMIN, INSTRUCTOR | Cria curso (`status = DRAFT`) |
 | PUT | `/courses/{id}` | SUPER_ADMIN, dono (INSTRUCTOR) | Edita informações gerais |
@@ -84,6 +89,8 @@ Esta é uma visão de alto nível dos grupos de endpoints; não é exaustiva de 
 | POST | `/courses/{id}/archive` | SUPER_ADMIN, dono | Arquiva |
 | DELETE | `/courses/{id}` | SUPER_ADMIN | Soft delete |
 | GET | `/courses/{id}/metrics` | SUPER_ADMIN, dono | Quantidade de alunos e % média de conclusão |
+| POST | `/courses/{id}/cover` | SUPER_ADMIN, INSTRUCTOR dono | Multipart `file` — capa do curso (JPG/PNG/WebP ≤ 5 MB); aparece no dashboard/Meus cursos |
+| GET | `/courses/{id}/cover` | autenticado com acesso ao curso | Serve a imagem de capa armazenada localmente |
 
 ### 2.4 Módulos (`/api/v1/courses/{courseId}/modules`)
 
@@ -111,8 +118,12 @@ Estrutura análoga a módulos: `GET`, `POST`, `PUT`, `DELETE`, `/reorder`, `/pub
 | Método | Rota | Papel | Descrição |
 |---|---|---|---|
 | POST | `/videos/upload-init` | SUPER_ADMIN, INSTRUCTOR (dono da aula) | Cria `VideoAsset` (`PENDING`) e retorna instruções de upload (dev: endpoint direto; prod: presigned URL) |
+| POST | `/videos/{id}/upload` | idem | Multipart: `file` (vídeo) + **`thumbnail` (imagem obrigatória, JPG/PNG/WebP ≤ 5 MB)** |
 | POST | `/videos/{id}/upload-complete` | idem | Confirma que o upload terminou, dispara validação/processamento |
-| GET | `/videos/{id}/stream-url` | matriculado no curso da aula, ou dono/admin | Retorna URL assinada de curta duração para reprodução — **nunca** a URL bruta do storage |
+| POST | `/videos/{id}/thumbnail` | idem | Multipart `file`: define/troca a thumbnail de um vídeo já enviado (JPG/PNG/WebP ≤ 5 MB) |
+| GET | `/videos/{id}/stream-url` | matriculado no curso da aula, ou dono/admin | Retorna URL assinada de curta duração para reprodução e `thumbnailUrl` (quando houver) — **nunca** a URL bruta do storage |
+| GET | `/videos/{id}/stream` | assinatura HMAC | Stream do arquivo de vídeo |
+| GET | `/videos/{id}/thumbnail` | assinatura HMAC | Serve a capa/poster do vídeo |
 | DELETE | `/videos/{id}` | SUPER_ADMIN, dono | Remove associação (não apaga histórico, ver `DATABASE.md` §5.7) |
 
 ### 2.7 Matrículas (`/api/v1/enrollments`)
@@ -120,10 +131,29 @@ Estrutura análoga a módulos: `GET`, `POST`, `PUT`, `DELETE`, `/reorder`, `/pub
 | Método | Rota | Papel | Descrição |
 |---|---|---|---|
 | GET | `/enrollments` | SUPER_ADMIN, INSTRUCTOR (dos seus cursos) | Lista matrículas com filtro por curso/aluno/status |
-| POST | `/enrollments` | SUPER_ADMIN, INSTRUCTOR (dos seus cursos) | Concede acesso manual |
+| POST | `/enrollments` | SUPER_ADMIN, INSTRUCTOR (dos seus cursos) | Concede acesso manual (continua disponível com pagamento) |
 | POST | `/enrollments/{id}/suspend` | SUPER_ADMIN, INSTRUCTOR dono | Suspende acesso |
-| POST | `/enrollments/{id}/cancel` | SUPER_ADMIN, INSTRUCTOR dono | Cancela |
+| POST | `/enrollments/{id}/cancel` | SUPER_ADMIN, INSTRUCTOR dono | Cancela (status; aluno some do acesso, registro permanece) |
+| POST | `/enrollments/{id}/reactivate` | SUPER_ADMIN, INSTRUCTOR dono | Reativa matrícula suspensa/cancelada |
+| DELETE | `/enrollments/{id}` | SUPER_ADMIN | Remove matrícula de vez (progresso, quizzes e certificado desta matrícula) |
 | GET | `/enrollments/me` | STUDENT | Minhas matrículas |
+
+### 2.7.1 Catálogo e checkout (`/api/v1/catalog`, `/checkout`, `/packages`, `/payments`)
+
+| Método | Rota | Papel | Descrição |
+|---|---|---|---|
+| GET | `/catalog/courses` | público | Cursos `PUBLISHED` com `priceCents` / `currency` |
+| GET | `/catalog/packages` | público | Pacotes ativos e cursos inclusos |
+| GET | `/packages` | público | Idem lista de pacotes ativos |
+| GET/POST/PUT/DELETE | `/admin/packages` | SUPER_ADMIN | CRUD de pacotes multi-curso |
+| POST | `/checkout/sessions` | autenticado | Body `{ courseId }` **ou** `{ packageId }` → Preference Mercado Pago (`initPoint`) |
+| GET | `/checkout/orders/{id}` | comprador | Status do pedido |
+| POST | `/checkout/orders/{id}/sync` | comprador | Consulta pagamento no MP e libera curso (fallback quando webhook não chega, ex. localhost) |
+| POST | `/checkout/orders/sync-pending` | comprador | Sincroniza todos os pedidos PENDING do usuário com o MP |
+| POST | `/checkout/orders/{id}/simulate-payment` | comprador | Só sem `MP_ACCESS_TOKEN` (mock local) |
+| POST | `/payments/mercadopago/webhook` | público | Notificação MP; valida pagamento via API e libera matrículas |
+
+**[DECISÃO]** Liberação pós-pagamento só ocorre após webhook (ou simulação mock) com status `approved`. Return URL do browser não concede acesso.
 
 ### 2.8 Progresso (`/api/v1/enrollments/{enrollmentId}/progress`)
 
@@ -174,6 +204,12 @@ Estrutura análoga a módulos: `GET`, `POST`, `PUT`, `DELETE`, `/reorder`, `/pub
 | GET | `/public/certificates/validate/{validationCode}` | **público** | Validação — nome do aluno, curso, carga horária, data de conclusão/emissão e status; sem dados sensíveis adicionais |
 
 `GET .../progress/summary` inclui `canFinishCourse`, `courseCompletedAt`, `canIssueCertificate`, `certificateId`.
+
+### 2.11b Dashboard (`/api/v1/dashboard`)
+
+| Método | Rota | Papel | Descrição |
+|---|---|---|---|
+| GET | `/dashboard/stats` | autenticado | Agregados por papel (aluno / professor / admin) + série mensal de ritmo de aprendizado no ano corrente |
 
 ### 2.12 IA — jobs e revisão (`/api/v1/ai`)
 
