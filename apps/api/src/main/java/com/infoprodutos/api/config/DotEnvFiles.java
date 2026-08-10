@@ -98,7 +98,7 @@ public final class DotEnvFiles {
             if (key.isEmpty() || values.containsKey(key)) {
                 continue;
             }
-            String value = stripQuotes(line.substring(eq + 1).trim());
+            String value = stripQuotes(line.substring(eq + 1).trim()).trim();
             if (!value.isBlank()) {
                 values.put(key, value);
             }

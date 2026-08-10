@@ -273,6 +273,7 @@ public class CheckoutService {
         if (url == null || url.isBlank()) {
             return "";
         }
-        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+        String trimmed = url.trim();
+        return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
     }
 }

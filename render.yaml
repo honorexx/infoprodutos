@@ -1,0 +1,66 @@
+# Blueprint Render: API + Postgres (frontend pode ficar no Vercel/outro host).
+# Docs: docs/DEPLOY_RENDER.md
+# Não coloque secrets reais neste arquivo — use o dashboard do Render / generateValue.
+
+databases:
+  - name: infoprodutos-db
+    plan: free
+    databaseName: infoprodutos
+    user: infoprodutos
+
+services:
+  - type: web
+    name: infoprodutos-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: ./apps/api
+    plan: free
+    healthCheckPath: /api-docs
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: JWT_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: MP_MOCK_WHEN_TOKEN_BLANK
+        value: "false"
+      - key: DB_HOST
+        fromDatabase:
+          name: infoprodutos-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: infoprodutos-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: infoprodutos-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: infoprodutos-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: infoprodutos-db
+          property: password
+      # Opcional: URL JDBC completa (sobrescreve montagem via DB_*).
+      # - key: SPRING_DATASOURCE_URL
+      #   fromDatabase:
+      #     name: infoprodutos-db
+      #     property: connectionString
+      - key: FRONTEND_BASE_URL
+        value: https://pksconsultoria.com.br
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://pksconsultoria.com.br,https://www.pksconsultoria.com.br
+      - key: API_PUBLIC_BASE_URL
+        value: https://api.pksconsultoria.com.br
+      - key: MAIL_FROM
+        value: "PKS Consultoria <noreply@pksconsultoria.com.br>"
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: MP_WEBHOOK_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false

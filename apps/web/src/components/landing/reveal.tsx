@@ -129,7 +129,8 @@ export function StaggerItem({
     <motion.div
       className={cn(className)}
       variants={{
-        hidden: { opacity: 0, y: 10 },
+        // Sem fade-out: opacity 0 deixava a home “vazia” se o JS/animação falhasse.
+        hidden: { opacity: 1, y: 10 },
         visible: {
           opacity: 1,
           y: 0,

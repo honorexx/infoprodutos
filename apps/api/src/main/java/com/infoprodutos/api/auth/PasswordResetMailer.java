@@ -1,11 +1,9 @@
 package com.infoprodutos.api.auth;
 
 /**
- * Abstração de envio do e-mail de recuperação de senha. Nenhum provedor de
- * e-mail foi definido ainda para o MVP (docs/DECISIONS.md) - a interface
- * permite plugar um provedor real (SMTP, SES, SendGrid, etc.) sem alterar
- * o AuthService. A implementação padrão apenas registra em log (ambiente de
- * desenvolvimento), nunca envia e-mail real.
+ * Abstração de envio do e-mail de recuperação de senha.
+ * Implementação padrão: {@link AppMailerPasswordResetMailer} via {@code AppMailer}
+ * (Resend se {@code RESEND_API_KEY} estiver definido; caso contrário só loga).
  */
 public interface PasswordResetMailer {
 

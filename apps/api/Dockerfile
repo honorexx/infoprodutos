@@ -22,4 +22,5 @@ USER app
 COPY --from=build /build/target/*.jar app.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
+# Render (e similares) injetam PORT; fallback SERVER_PORT / 8080.
+CMD ["sh", "-c", "java -XX:MaxRAMPercentage=75.0 -jar app.jar --server.port=${PORT:-${SERVER_PORT:-8080}}"]

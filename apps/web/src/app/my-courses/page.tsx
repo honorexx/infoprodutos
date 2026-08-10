@@ -27,16 +27,20 @@ function MyCoursesContent() {
     let active = true;
     async function load() {
       try {
-        const { syncPendingPurchases } = await import("@/lib/sync-pending-purchases");
-        const unlocked = await syncPendingPurchases();
-        if (unlocked.length > 0 && active) {
+        // Não bloqueia a lista no sync (evita skeleton infinito se MP/CORS travar).
+        void import("@/lib/sync-pending-purchases").then(async ({ syncPendingPurchases }) => {
+          const unlocked = await syncPendingPurchases();
+          if (!active || unlocked.length === 0) return;
           const { toast } = await import("sonner");
           toast.success(
             unlocked.length === 1
               ? "Pagamento confirmado — curso liberado."
               : `${unlocked.length} compras liberadas.`,
           );
-        }
+          const refreshed = await apiFetch<Enrollment[]>("/enrollments/me");
+          if (active) setEnrollments(refreshed);
+        });
+
         const list = await apiFetch<Enrollment[]>("/enrollments/me");
         if (!active) return;
         setEnrollments(list);

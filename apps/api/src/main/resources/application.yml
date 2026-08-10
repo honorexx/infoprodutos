@@ -65,6 +65,9 @@ app:
     api-base-url: ${MP_API_BASE_URL:https://api.mercadopago.com}
     # Sem token: CheckoutService usa mock (simulate-payment). Em prod defina MP_ACCESS_TOKEN.
     mock-when-token-blank: ${MP_MOCK_WHEN_TOKEN_BLANK:true}
+  mail:
+    resend-api-key: ${RESEND_API_KEY:}
+    from: "${MAIL_FROM:PKS Consultoria <onboarding@resend.dev>}"
   dev-seed:
     enabled: ${DEV_SEED_ENABLED:false}
     admin-email: ${DEV_SEED_ADMIN_EMAIL:}

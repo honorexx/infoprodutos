@@ -24,15 +24,24 @@ function DiscoverContent() {
     let cancelled = false;
     async function load() {
       try {
-        const { syncPendingPurchases } = await import("@/lib/sync-pending-purchases");
-        const unlocked = await syncPendingPurchases();
-        if (!cancelled && unlocked.length > 0) {
+        void import("@/lib/sync-pending-purchases").then(async ({ syncPendingPurchases }) => {
+          const unlocked = await syncPendingPurchases();
+          if (cancelled || unlocked.length === 0) return;
           toast.success(
             unlocked.length === 1
               ? "Pagamento confirmado — curso liberado."
               : `${unlocked.length} compras liberadas.`,
           );
-        }
+          const enrollments = await apiFetch<Enrollment[]>("/enrollments/me").catch(
+            () => [] as Enrollment[],
+          );
+          if (!cancelled) {
+            setEnrolledIds(
+              new Set(enrollments.filter((e) => e.status === "ACTIVE").map((e) => e.courseId)),
+            );
+          }
+        });
+
         const [catalog, pkgs, enrollments] = await Promise.all([
           apiFetch<CourseSummary[]>("/catalog/courses", { skipAuth: true }),
           apiFetch<ProductPackage[]>("/catalog/packages", { skipAuth: true }),

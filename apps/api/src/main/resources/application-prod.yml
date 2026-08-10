@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}}
     username: ${DB_USER}
     password: ${DB_PASSWORD}
   jpa:
@@ -9,6 +9,9 @@ spring:
 app:
   cookie:
     secure: ${COOKIE_SECURE:true}
+  mercadopago:
+    # Em produção nunca cair no mock por acidente.
+    mock-when-token-blank: ${MP_MOCK_WHEN_TOKEN_BLANK:false}
   dev-seed:
     # Nunca habilitado em produção: seeds de desenvolvimento não podem existir fora de dev/local.
     enabled: false
