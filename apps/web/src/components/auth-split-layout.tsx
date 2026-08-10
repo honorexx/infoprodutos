@@ -33,7 +33,7 @@ export function AuthSplitLayout({
         <div className="ml-auto w-full max-w-[24rem] px-10 xl:px-14">
           <Link href="/" aria-label="PKS Consultoria — início" className="block w-fit">
             <motion.div
-              initial={{ opacity: 0, y: 14 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease }}
             >
@@ -52,7 +52,7 @@ export function AuthSplitLayout({
           </Link>
 
           <motion.div
-            initial={{ opacity: 0, y: 14 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease }}
             className="mt-11"
@@ -76,7 +76,9 @@ export function AuthSplitLayout({
 
       <section className="relative z-10 flex flex-1 items-center lg:py-16">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          // Não começar em opacity 0: SSR/hidratação deixava o form invisível
+          // (tela navy vazia) se o JS atrasasse ou o bootstrap de auth travasse.
+          initial={false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.06, ease }}
           className="mx-auto w-full max-w-[22.5rem] px-6 py-14 sm:px-8 lg:mx-0 lg:px-10 xl:px-14"

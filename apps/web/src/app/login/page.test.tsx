@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import LoginPage from "@/app/login/page";
+import { LoginForm } from "@/app/login/login-form";
 import { ApiError } from "@/lib/api-client";
 
 const pushMock = vi.fn();
@@ -14,7 +14,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, replace: pushMock }),
 }));
 
-describe("LoginPage", () => {
+describe("LoginForm", () => {
   beforeEach(() => {
     pushMock.mockClear();
     loginMock.mockReset();
@@ -22,7 +22,7 @@ describe("LoginPage", () => {
 
   it("exibe erros de validação para campos inválidos", async () => {
     const user = userEvent.setup();
-    render(<LoginPage />);
+    render(<LoginForm nextPath="/dashboard" />);
 
     await user.click(screen.getByRole("button", { name: /entrar/i }));
 
@@ -33,7 +33,7 @@ describe("LoginPage", () => {
   it("chama login e redireciona para /dashboard em caso de sucesso", async () => {
     loginMock.mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<LoginPage />);
+    render(<LoginForm nextPath="/dashboard" />);
 
     await user.type(screen.getByLabelText(/e-mail/i), "user@example.com");
     await user.type(screen.getByLabelText(/senha/i), "SenhaForte123");
@@ -61,7 +61,7 @@ describe("LoginPage", () => {
       ),
     );
     const user = userEvent.setup();
-    render(<LoginPage />);
+    render(<LoginForm nextPath="/dashboard" />);
 
     await user.type(screen.getByLabelText(/e-mail/i), "user@example.com");
     await user.type(screen.getByLabelText(/senha/i), "senhaErrada");

@@ -24,6 +24,9 @@ interface RequestOptions {
 
 let refreshPromise: Promise<boolean> | null = null;
 
+/** Evita bootstrap de auth travado quando o upstream/proxy não responde. */
+const REFRESH_TIMEOUT_MS = 8_000;
+
 async function refreshAccessToken(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
@@ -31,6 +34,7 @@ async function refreshAccessToken(): Promise<boolean> {
         const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: "POST",
           credentials: "include",
+          signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
         });
         if (!response.ok) {
           setAccessToken(null);

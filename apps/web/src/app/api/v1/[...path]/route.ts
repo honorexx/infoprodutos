@@ -38,12 +38,24 @@ async function proxy(request: NextRequest, pathSegments: string[]): Promise<Next
     method: request.method,
     headers,
     redirect: "manual",
+    signal: AbortSignal.timeout(12_000),
   };
   if (request.method !== "GET" && request.method !== "HEAD") {
     init.body = await request.arrayBuffer();
   }
 
-  const upstream = await fetch(target, init);
+  let upstream: Response;
+  try {
+    upstream = await fetch(target, init);
+  } catch {
+    return NextResponse.json(
+      {
+        detail: "API upstream indisponível ou demorou demais para responder.",
+      },
+      { status: 504 },
+    );
+  }
+
   const outHeaders = new Headers();
   upstream.headers.forEach((value, key) => {
     const lower = key.toLowerCase();
