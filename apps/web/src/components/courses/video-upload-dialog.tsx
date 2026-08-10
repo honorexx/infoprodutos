@@ -37,6 +37,8 @@ type VideoUploadDialogProps = {
   lessonTitle: string;
   replacing?: boolean;
   pending?: boolean;
+  /** 0–100 enquanto envia; null quando ocioso. */
+  progress?: number | null;
   onSubmit: (payload: VideoUploadPayload) => void | Promise<void>;
 };
 
@@ -46,6 +48,7 @@ export function VideoUploadDialog({
   lessonTitle,
   replacing = false,
   pending = false,
+  progress = null,
   onSubmit,
 }: VideoUploadDialogProps) {
   const videoInputId = useId();
@@ -185,6 +188,24 @@ export function VideoUploadDialog({
           </div>
 
           {error && <p className="text-sm text-danger">{error}</p>}
+
+          {pending && (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Enviando vídeo…</span>
+                <span>{progress != null ? `${progress}%` : "preparando"}</span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-200"
+                  style={{ width: `${progress != null ? Math.max(progress, 2) : 8}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Aulas longas podem levar vários minutos. Não feche esta janela.
+              </p>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
@@ -192,7 +213,13 @@ export function VideoUploadDialog({
             Cancelar
           </Button>
           <Button type="button" disabled={!canSubmit} onClick={() => void handleSubmit()}>
-            {pending ? "Enviando…" : replacing ? "Substituir" : "Enviar"}
+            {pending
+              ? progress != null
+                ? `Enviando… ${progress}%`
+                : "Enviando…"
+              : replacing
+                ? "Substituir"
+                : "Enviar"}
           </Button>
         </DialogFooter>
       </DialogContent>

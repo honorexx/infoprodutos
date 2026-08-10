@@ -13,9 +13,11 @@ import java.util.HexFormat;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(prefix = "app.video-storage.s3", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class LocalVideoStorageProvider implements VideoStorageProvider {
 
     private static final Logger log = LoggerFactory.getLogger(LocalVideoStorageProvider.class);
@@ -70,8 +72,7 @@ public class LocalVideoStorageProvider implements VideoStorageProvider {
 
     @Override
     public StoredObject store(String keyPrefix, String originalFilename, String contentType, InputStream data, long sizeBytes) {
-        String safeName = sanitizeFilename(originalFilename);
-        String key = keyPrefix + "/" + UUID.randomUUID() + "_" + safeName;
+        String key = allocateKey(keyPrefix, originalFilename);
         Path target = resolvePath(key);
         try {
             Files.createDirectories(target.getParent());
@@ -91,6 +92,12 @@ public class LocalVideoStorageProvider implements VideoStorageProvider {
             }
             throw new IllegalStateException("Falha ao armazenar arquivo localmente", e);
         }
+    }
+
+    @Override
+    public String allocateKey(String keyPrefix, String originalFilename) {
+        String safeName = VideoStorageProvider.sanitizeFilename(originalFilename);
+        return keyPrefix + "/" + UUID.randomUUID() + "_" + safeName;
     }
 
     @Override
@@ -120,11 +127,18 @@ public class LocalVideoStorageProvider implements VideoStorageProvider {
         }
     }
 
-    private static String sanitizeFilename(String name) {
-        if (name == null || name.isBlank()) {
-            return "file.bin";
+    @Override
+    public boolean exists(String storageKey) {
+        return Files.isRegularFile(resolvePath(storageKey));
+    }
+
+    @Override
+    public ObjectStat head(String storageKey) {
+        try {
+            Path path = resolvePath(storageKey);
+            return new ObjectStat(Files.size(path), null, null);
+        } catch (IOException e) {
+            throw new IllegalStateException("Arquivo não encontrado no storage local", e);
         }
-        String cleaned = name.replaceAll("[^a-zA-Z0-9._-]", "_");
-        return cleaned.length() > 120 ? cleaned.substring(cleaned.length() - 120) : cleaned;
     }
 }

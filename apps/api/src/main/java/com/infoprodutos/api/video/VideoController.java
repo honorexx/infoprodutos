@@ -35,7 +35,7 @@ public class VideoController {
     public UploadInitResponse uploadInit(
             @Valid @RequestBody UploadInitRequest request,
             @AuthenticationPrincipal CustomUserDetails principal) {
-        return videoService.initUpload(request.lessonId(), principal);
+        return videoService.initUpload(request, principal);
     }
 
     @PostMapping(path = "/{id}/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

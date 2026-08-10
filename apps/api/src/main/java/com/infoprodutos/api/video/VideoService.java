@@ -5,6 +5,7 @@ import com.infoprodutos.api.common.exception.BadRequestException;
 import com.infoprodutos.api.common.exception.ForbiddenOperationException;
 import com.infoprodutos.api.common.exception.NotFoundException;
 import com.infoprodutos.api.config.ApiUrlProperties;
+import com.infoprodutos.api.config.S3StorageProperties;
 import com.infoprodutos.api.config.VideoStorageProperties;
 import com.infoprodutos.api.course.CourseAccessGuard;
 import com.infoprodutos.api.course.LessonService;
@@ -17,11 +18,14 @@ import com.infoprodutos.api.video.domain.StorageProviderType;
 import com.infoprodutos.api.video.domain.UploadStatus;
 import com.infoprodutos.api.video.domain.VideoAsset;
 import com.infoprodutos.api.video.dto.StreamUrlResponse;
+import com.infoprodutos.api.video.dto.UploadInitRequest;
 import com.infoprodutos.api.video.dto.UploadInitResponse;
 import com.infoprodutos.api.video.dto.VideoAssetResponse;
 import com.infoprodutos.api.video.repository.VideoAssetRepository;
+import com.infoprodutos.api.video.storage.S3CompatibleVideoStorageProvider;
 import com.infoprodutos.api.video.storage.VideoStorageProvider;
 import java.io.InputStream;
+import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -54,31 +58,107 @@ public class VideoService {
     private final EnrollmentAccessGuard enrollmentAccessGuard;
     private final VideoStorageProvider storageProvider;
     private final VideoStorageProperties storageProperties;
+    private final S3StorageProperties s3StorageProperties;
     private final StreamUrlSigner streamUrlSigner;
     private final ApiUrlProperties apiUrlProperties;
     private final AuditService auditService;
 
     @Transactional
-    public UploadInitResponse initUpload(UUID lessonId, CustomUserDetails principal) {
-        Lesson lesson = lessonService.findActiveOrThrow(lessonId);
+    public UploadInitResponse initUpload(UploadInitRequest request, CustomUserDetails principal) {
+        Lesson lesson = lessonService.findActiveOrThrow(request.lessonId());
         accessGuard.requireManageAccess(lesson.getModule().getCourse().getId(), principal);
 
+        boolean direct = storageProvider.supportsDirectUpload();
+
         VideoAsset asset = new VideoAsset();
-        asset.setLessonId(lessonId);
-        asset.setStorageProvider(StorageProviderType.LOCAL_DEV);
-        asset.setStorageKey("pending/" + UUID.randomUUID());
+        asset.setLessonId(request.lessonId());
+        asset.setStorageProvider(
+                direct ? StorageProviderType.S3_COMPATIBLE : StorageProviderType.LOCAL_DEV);
         asset.setUploadStatus(UploadStatus.PENDING);
         asset.setProcessingStatus(ProcessingStatus.PENDING);
-        asset = videoAssetRepository.save(asset);
 
+        if (direct) {
+            String videoCt = normalizeVideoContentType(request.videoContentType(), request.videoFilename());
+            String thumbCt = normalizeThumbnailContentType(
+                    request.thumbnailContentType(), request.thumbnailFilename());
+            long videoSize = request.videoSizeBytes() != null ? request.videoSizeBytes() : 0L;
+            long thumbSize = request.thumbnailSizeBytes() != null ? request.thumbnailSizeBytes() : 0L;
+            if (videoSize <= 0) {
+                throw new BadRequestException("Informe o tamanho do vídeo (videoSizeBytes).");
+            }
+            if (videoSize > storageProperties.maxFileBytes()) {
+                throw new BadRequestException("Arquivo excede o tamanho máximo permitido.");
+            }
+            if (thumbSize <= 0) {
+                throw new BadRequestException("Informe o tamanho da thumbnail (thumbnailSizeBytes).");
+            }
+            if (thumbSize > MAX_THUMBNAIL_BYTES) {
+                throw new BadRequestException("Thumbnail excede 5 MB. Envie uma imagem menor.");
+            }
+            String videoName =
+                    request.videoFilename() != null && !request.videoFilename().isBlank()
+                            ? request.videoFilename()
+                            : "video.mp4";
+            String thumbName =
+                    request.thumbnailFilename() != null && !request.thumbnailFilename().isBlank()
+                            ? request.thumbnailFilename()
+                            : "thumbnail.jpg";
+
+            String videoKey = storageProvider.allocateKey("lessons/" + lesson.getId(), videoName);
+            String thumbKey =
+                    storageProvider.allocateKey("lessons/" + lesson.getId() + "/thumbnails", thumbName);
+
+            asset.setStorageKey(videoKey);
+            asset.setThumbnailStorageKey(thumbKey);
+            asset.setOriginalFilename(videoName);
+            asset.setMimeType(videoCt);
+            asset.setThumbnailMimeType(thumbCt);
+            asset.setSizeBytes(videoSize);
+            asset.setUploadStatus(UploadStatus.UPLOADING);
+            asset = videoAssetRepository.save(asset);
+
+            Duration ttl = Duration.ofSeconds(
+                    storageProvider instanceof S3CompatibleVideoStorageProvider s3
+                            ? s3.uploadUrlTtlSeconds()
+                            : s3StorageProperties.uploadUrlTtlSeconds());
+
+            var videoPut = storageProvider.createPresignedPut(videoKey, videoCt, ttl);
+            var thumbPut = storageProvider.createPresignedPut(thumbKey, thumbCt, ttl);
+
+            auditService.record(principal.getId(), "VIDEO_UPLOAD_INIT", "VideoAsset", asset.getId(), null);
+            return new UploadInitResponse(
+                    asset.getId().toString(),
+                    "DIRECT",
+                    null,
+                    videoPut.uploadUrl(),
+                    thumbPut.uploadUrl(),
+                    videoCt,
+                    thumbCt,
+                    asset.getUploadStatus().name());
+        }
+
+        asset.setStorageKey("pending/" + UUID.randomUUID());
+        asset = videoAssetRepository.save(asset);
         String uploadUrl = "/api/v1/videos/" + asset.getId() + "/upload";
         auditService.record(principal.getId(), "VIDEO_UPLOAD_INIT", "VideoAsset", asset.getId(), null);
-        return new UploadInitResponse(asset.getId().toString(), uploadUrl, asset.getUploadStatus().name());
+        return new UploadInitResponse(
+                asset.getId().toString(),
+                "PROXY",
+                uploadUrl,
+                null,
+                null,
+                null,
+                null,
+                asset.getUploadStatus().name());
     }
 
     @Transactional
     public VideoAssetResponse uploadBinary(
             UUID videoId, MultipartFile file, MultipartFile thumbnail, CustomUserDetails principal) {
+        if (storageProvider.supportsDirectUpload()) {
+            throw new BadRequestException(
+                    "Upload multipart desabilitado: use o fluxo DIRECT (URLs assinadas do upload-init).");
+        }
         VideoAsset asset = findOrThrow(videoId);
         if (asset.getLessonId() == null) {
             throw new BadRequestException("Vídeo sem aula associada.");
@@ -147,18 +227,7 @@ public class VideoService {
             asset.setMimeType(contentType);
             asset.setThumbnailStorageKey(thumbStored.storageKey());
             asset.setThumbnailMimeType(thumbType);
-            asset.setUploadStatus(UploadStatus.UPLOADED);
-            asset.setProcessingStatus(ProcessingStatus.READY);
-            asset.setFailureReason(null);
-            asset = videoAssetRepository.save(asset);
-
-            // Substituição: atualiza ponteiro atual; vídeo antigo permanece no banco.
-            lesson.setCurrentVideoAssetId(asset.getId());
-            if (lesson.getDurationSeconds() == null) {
-                lesson.setDurationSeconds(asset.getDurationSeconds());
-            }
-            lessonRepository.save(lesson);
-
+            attachUploadedAsset(asset, lesson);
             auditService.record(principal.getId(), "VIDEO_UPLOADED", "VideoAsset", asset.getId(), null);
             log.info("Vídeo {} associado à aula {} ({} bytes)", asset.getId(), lesson.getId(), asset.getSizeBytes());
             return VideoAssetResponse.from(asset);
@@ -226,7 +295,51 @@ public class VideoService {
     @Transactional
     public VideoAssetResponse completeUpload(UUID videoId, CustomUserDetails principal) {
         VideoAsset asset = findOrThrow(videoId);
-        requireManageForAsset(asset, principal);
+        Lesson lesson = requireManageForAsset(asset, principal);
+
+        if (asset.getUploadStatus() == UploadStatus.UPLOADED
+                && asset.getProcessingStatus() == ProcessingStatus.READY) {
+            return VideoAssetResponse.from(asset);
+        }
+
+        if (storageProvider.supportsDirectUpload()) {
+            if (asset.getUploadStatus() != UploadStatus.UPLOADING
+                    && asset.getUploadStatus() != UploadStatus.PENDING) {
+                throw new BadRequestException("Upload ainda não concluído.");
+            }
+            if (!storageProvider.exists(asset.getStorageKey())) {
+                markFailed(asset, "Objeto de vídeo ausente no storage.");
+                throw new BadRequestException(
+                        "Vídeo não encontrado no storage. Conclua o PUT antes do upload-complete.");
+            }
+            if (asset.getThumbnailStorageKey() == null
+                    || asset.getThumbnailStorageKey().isBlank()
+                    || !storageProvider.exists(asset.getThumbnailStorageKey())) {
+                markFailed(asset, "Thumbnail ausente no storage.");
+                throw new BadRequestException(
+                        "Thumbnail não encontrada no storage. Conclua o PUT antes do upload-complete.");
+            }
+            try {
+                var head = storageProvider.head(asset.getStorageKey());
+                if (head.sizeBytes() > 0) {
+                    asset.setSizeBytes(head.sizeBytes());
+                }
+                if (head.eTag() != null) {
+                    asset.setChecksum(head.eTag());
+                }
+            } catch (Exception e) {
+                log.warn("headObject falhou para {}: {}", videoId, e.getClass().getSimpleName());
+            }
+            attachUploadedAsset(asset, lesson);
+            auditService.record(principal.getId(), "VIDEO_UPLOADED", "VideoAsset", asset.getId(), null);
+            log.info(
+                    "Vídeo DIRECT {} associado à aula {} ({} bytes)",
+                    asset.getId(),
+                    lesson.getId(),
+                    asset.getSizeBytes());
+            return VideoAssetResponse.from(asset);
+        }
+
         if (asset.getUploadStatus() != UploadStatus.UPLOADED) {
             throw new BadRequestException("Upload ainda não concluído.");
         }
@@ -245,8 +358,23 @@ public class VideoService {
         if (asset.getUploadStatus() != UploadStatus.UPLOADED || asset.getProcessingStatus() != ProcessingStatus.READY) {
             throw new BadRequestException("Vídeo ainda não está pronto para reprodução.");
         }
+
+        // S3/R2: browser toca direto no object storage (presigned GET).
+        if (storageProvider.supportsDirectUpload()) {
+            Duration ttl = Duration.ofSeconds(
+                    storageProvider instanceof S3CompatibleVideoStorageProvider s3
+                            ? s3.downloadUrlTtlSeconds()
+                            : s3StorageProperties.downloadUrlTtlSeconds());
+            String url = storageProvider.createPresignedGet(asset.getStorageKey(), ttl);
+            String thumbnailUrl = null;
+            if (asset.getThumbnailStorageKey() != null && !asset.getThumbnailStorageKey().isBlank()) {
+                thumbnailUrl = storageProvider.createPresignedGet(asset.getThumbnailStorageKey(), ttl);
+            }
+            long expiresAt = (System.currentTimeMillis() / 1000L) + ttl.getSeconds();
+            return new StreamUrlResponse(url, thumbnailUrl, expiresAt, (int) ttl.getSeconds());
+        }
+
         var signed = streamUrlSigner.sign(videoId);
-        // Usa o host/porta da própria requisição (evita API_PUBLIC_BASE_URL desalinhada da porta real).
         String base = resolvePublicBaseUrl(request);
         String url = String.format(
                 "%s/api/v1/videos/%s/stream?expires=%d&sig=%s",
@@ -340,6 +468,18 @@ public class VideoService {
         return videoAssetRepository.findById(id).orElseThrow(() -> new NotFoundException("Vídeo não encontrado."));
     }
 
+    private void attachUploadedAsset(VideoAsset asset, Lesson lesson) {
+        asset.setUploadStatus(UploadStatus.UPLOADED);
+        asset.setProcessingStatus(ProcessingStatus.READY);
+        asset.setFailureReason(null);
+        asset = videoAssetRepository.save(asset);
+        lesson.setCurrentVideoAssetId(asset.getId());
+        if (lesson.getDurationSeconds() == null) {
+            lesson.setDurationSeconds(asset.getDurationSeconds());
+        }
+        lessonRepository.save(lesson);
+    }
+
     private Lesson requireManageForAsset(VideoAsset asset, CustomUserDetails principal) {
         if (asset.getLessonId() == null) {
             throw new BadRequestException("Vídeo sem aula associada.");
@@ -362,6 +502,49 @@ public class VideoService {
         asset.setProcessingStatus(ProcessingStatus.FAILED);
         asset.setFailureReason(reason);
         videoAssetRepository.save(asset);
+    }
+
+    private String normalizeVideoContentType(String contentType, String filename) {
+        String ct = contentType != null ? contentType.trim().toLowerCase() : "";
+        if (ct.isBlank() || "application/octet-stream".equals(ct)) {
+            String name = filename != null ? filename.toLowerCase() : "";
+            if (name.endsWith(".webm")) {
+                ct = "video/webm";
+            } else if (name.endsWith(".mov")) {
+                ct = "video/quicktime";
+            } else if (name.endsWith(".avi")) {
+                ct = "video/x-msvideo";
+            } else {
+                ct = "video/mp4";
+            }
+        }
+        if (!ALLOWED_MIME.contains(ct) && !ct.startsWith("video/")) {
+            throw new BadRequestException("Tipo de arquivo não suportado. Envie um vídeo (ex.: MP4).");
+        }
+        return ct;
+    }
+
+    private String normalizeThumbnailContentType(String contentType, String filename) {
+        String thumbType = contentType != null ? contentType.toLowerCase().trim() : "";
+        String thumbName = filename != null ? filename.toLowerCase() : "";
+        boolean thumbOk = ALLOWED_THUMBNAIL_MIME.contains(thumbType)
+                || thumbName.endsWith(".jpg")
+                || thumbName.endsWith(".jpeg")
+                || thumbName.endsWith(".png")
+                || thumbName.endsWith(".webp");
+        if (!thumbOk) {
+            throw new BadRequestException("Thumbnail inválida. Use JPG, PNG ou WebP.");
+        }
+        if (thumbType.isBlank() || !ALLOWED_THUMBNAIL_MIME.contains(thumbType)) {
+            if (thumbName.endsWith(".png")) {
+                return "image/png";
+            }
+            if (thumbName.endsWith(".webp")) {
+                return "image/webp";
+            }
+            return "image/jpeg";
+        }
+        return thumbType;
     }
 
     private static String resolveThumbnailContentType(MultipartFile thumbnail) {

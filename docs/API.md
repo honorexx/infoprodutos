@@ -117,13 +117,13 @@ Estrutura análoga a módulos: `GET`, `POST`, `PUT`, `DELETE`, `/reorder`, `/pub
 
 | Método | Rota | Papel | Descrição |
 |---|---|---|---|
-| POST | `/videos/upload-init` | SUPER_ADMIN, INSTRUCTOR (dono da aula) | Cria `VideoAsset` (`PENDING`) e retorna instruções de upload (dev: endpoint direto; prod: presigned URL) |
-| POST | `/videos/{id}/upload` | idem | Multipart: `file` (vídeo) + **`thumbnail` (imagem obrigatória, JPG/PNG/WebP ≤ 5 MB)** |
-| POST | `/videos/{id}/upload-complete` | idem | Confirma que o upload terminou, dispara validação/processamento |
+| POST | `/videos/upload-init` | SUPER_ADMIN, INSTRUCTOR (dono da aula) | Cria `VideoAsset` e retorna `uploadMode`: `DIRECT` (URLs PUT assinadas R2/S3) ou `PROXY` (multipart na API, local/dev) |
+| POST | `/videos/{id}/upload` | idem | **Só PROXY:** multipart `file` + `thumbnail` (imagem obrigatória) |
+| POST | `/videos/{id}/upload-complete` | idem | Confirma upload (`DIRECT`: valida objetos no storage; `PROXY`: status) |
 | POST | `/videos/{id}/thumbnail` | idem | Multipart `file`: define/troca a thumbnail de um vídeo já enviado (JPG/PNG/WebP ≤ 5 MB) |
-| GET | `/videos/{id}/stream-url` | matriculado no curso da aula, ou dono/admin | Retorna URL assinada de curta duração para reprodução e `thumbnailUrl` (quando houver) — **nunca** a URL bruta do storage |
-| GET | `/videos/{id}/stream` | assinatura HMAC | Stream do arquivo de vídeo |
-| GET | `/videos/{id}/thumbnail` | assinatura HMAC | Serve a capa/poster do vídeo |
+| GET | `/videos/{id}/stream-url` | matriculado no curso da aula, ou dono/admin | `DIRECT`: presigned GET no R2/S3; `PROXY`: URL HMAC na API + `thumbnailUrl` |
+| GET | `/videos/{id}/stream` | assinatura HMAC | Stream do arquivo (modo PROXY / fallback) |
+| GET | `/videos/{id}/thumbnail` | assinatura HMAC | Serve a capa/poster (modo PROXY / fallback) |
 | DELETE | `/videos/{id}` | SUPER_ADMIN, dono | Remove associação (não apaga histórico, ver `DATABASE.md` §5.7) |
 
 ### 2.7 Matrículas (`/api/v1/enrollments`)

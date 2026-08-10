@@ -26,7 +26,13 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { StatusBadge } from "@/components/status-badge";
 import { useAuth } from "@/lib/auth-context";
-import { apiFetch, apiUpload, ApiError } from "@/lib/api-client";
+import {
+  apiFetch,
+  apiUpload,
+  putPresigned,
+  ApiError,
+  type UploadInitResponse,
+} from "@/lib/api-client";
 import { ApiImage } from "@/components/ui/api-image";
 import { courseFormSchema, lessonFormSchema, moduleFormSchema } from "@/lib/validation";
 import type { CourseFormInput, LessonFormInput, ModuleFormInput } from "@/lib/validation";
@@ -85,6 +91,7 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
   const [pending, setPending] = useState(false);
   const [collapsedModules, setCollapsedModules] = useState<Record<string, boolean>>({});
   const [uploadingLessonId, setUploadingLessonId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [videoUploadLesson, setVideoUploadLesson] = useState<Lesson | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [thumbnailLessonId, setThumbnailLessonId] = useState<string | null>(null);
@@ -311,16 +318,43 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
 
   async function uploadLessonVideo(lesson: Lesson, payload: VideoUploadPayload) {
     setUploadingLessonId(lesson.id);
+    setUploadProgress(0);
     try {
-      const init = await apiFetch<{ videoAssetId: string; uploadUrl: string }>("/videos/upload-init", {
+      const init = await apiFetch<UploadInitResponse>("/videos/upload-init", {
         method: "POST",
-        body: { lessonId: lesson.id },
+        body: {
+          lessonId: lesson.id,
+          videoContentType: payload.video.type || "video/mp4",
+          videoFilename: payload.video.name,
+          videoSizeBytes: payload.video.size,
+          thumbnailContentType: payload.thumbnail.type || "image/jpeg",
+          thumbnailFilename: payload.thumbnail.name,
+          thumbnailSizeBytes: payload.thumbnail.size,
+        },
       });
-      const form = new FormData();
-      form.append("file", payload.video);
-      form.append("thumbnail", payload.thumbnail);
-      const uploadPath = init.uploadUrl.replace(/^\/api\/v1/, "");
-      await apiUpload(uploadPath, form);
+
+      if (init.uploadMode === "DIRECT") {
+        if (!init.videoUploadUrl || !init.thumbnailUploadUrl) {
+          throw new Error("API não retornou URLs assinadas de upload.");
+        }
+        const videoCt = init.videoContentType || payload.video.type || "video/mp4";
+        const thumbCt = init.thumbnailContentType || payload.thumbnail.type || "image/jpeg";
+        // Thumbnail first (pequena), depois vídeo com progresso 0–100.
+        setUploadProgress(1);
+        await putPresigned(init.thumbnailUploadUrl, payload.thumbnail, thumbCt);
+        await putPresigned(init.videoUploadUrl, payload.video, videoCt, setUploadProgress);
+      } else {
+        if (!init.uploadUrl) {
+          throw new Error("API não retornou URL de upload.");
+        }
+        const form = new FormData();
+        form.append("file", payload.video);
+        form.append("thumbnail", payload.thumbnail);
+        const uploadPath = init.uploadUrl.replace(/^\/api\/v1/, "");
+        // PROXY: usa API_UPLOAD_BASE_URL (Render) — evita body/timeout da Vercel.
+        await apiUpload(uploadPath, form, "POST", { onProgress: setUploadProgress });
+      }
+
       await apiFetch(`/videos/${init.videoAssetId}/upload-complete`, { method: "POST" });
       toast.success("Vídeo e thumbnail associados à aula");
       setVideoUploadLesson(null);
@@ -333,6 +367,7 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
       );
     } finally {
       setUploadingLessonId(null);
+      setUploadProgress(null);
     }
   }
 
@@ -828,11 +863,16 @@ function CourseDetailContent({ courseId }: { courseId: string }) {
       <VideoUploadDialog
         open={videoUploadLesson != null}
         onOpenChange={(open) => {
-          if (!open) setVideoUploadLesson(null);
+          if (!open && uploadingLessonId == null) setVideoUploadLesson(null);
         }}
         lessonTitle={videoUploadLesson?.title ?? ""}
         replacing={Boolean(videoUploadLesson?.currentVideoAssetId)}
         pending={videoUploadLesson != null && uploadingLessonId === videoUploadLesson.id}
+        progress={
+          videoUploadLesson != null && uploadingLessonId === videoUploadLesson.id
+            ? uploadProgress
+            : null
+        }
         onSubmit={async (payload) => {
           if (!videoUploadLesson) return;
           await uploadLessonVideo(videoUploadLesson, payload);

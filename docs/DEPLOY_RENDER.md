@@ -80,3 +80,9 @@ curl -sS -o /dev/null -w "%{http_code}\n" -X POST \
 ```
 
 Depois: login → compra → webhook → matrícula + sininho + e-mail.
+
+## 8. Vídeos longos (20+ min)
+
+Não envie vídeo pelo proxy da Vercel. Configure **Cloudflare R2** (URLs assinadas):
+
+→ **[docs/DEPLOY_VIDEO_R2.md](./DEPLOY_VIDEO_R2.md)**

@@ -58,6 +58,21 @@ services:
         value: https://api.pksconsultoria.com.br
       - key: MAIL_FROM
         value: "PKS Consultoria <noreply@pksconsultoria.com.br>"
+      # Object storage (Cloudflare R2). Defina no dashboard — ver docs/DEPLOY_VIDEO_R2.md
+      - key: VIDEO_S3_ENABLED
+        value: "false"
+      - key: VIDEO_S3_ENDPOINT
+        sync: false
+      - key: VIDEO_S3_REGION
+        value: auto
+      - key: VIDEO_S3_BUCKET
+        sync: false
+      - key: VIDEO_S3_ACCESS_KEY
+        sync: false
+      - key: VIDEO_S3_SECRET_KEY
+        sync: false
+      - key: VIDEO_STORAGE_MAX_FILE_BYTES
+        value: "2147483648"
       - key: MP_ACCESS_TOKEN
         sync: false
       - key: MP_WEBHOOK_SECRET

@@ -21,8 +21,9 @@ server:
     include-binding-errors: never
 
 spring.servlet.multipart:
-  max-file-size: ${MULTIPART_MAX_FILE_SIZE:500MB}
-  max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:500MB}
+  # PROXY/local only — em produção com R2 o vídeo não passa pela API.
+  max-file-size: ${MULTIPART_MAX_FILE_SIZE:2GB}
+  max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:2GB}
 
 springdoc:
   api-docs:
@@ -46,8 +47,20 @@ app:
     public-base-url: ${API_PUBLIC_BASE_URL:http://localhost:8080}
   video-storage:
     local-root: ${VIDEO_STORAGE_LOCAL_ROOT:./data/videos}
-    max-file-bytes: ${VIDEO_STORAGE_MAX_FILE_BYTES:524288000}
+    # 2 GiB default — aulas longas (20+ min). Em R2 o limite prático é o plano do bucket.
+    max-file-bytes: ${VIDEO_STORAGE_MAX_FILE_BYTES:2147483648}
     stream-url-ttl-seconds: ${VIDEO_STREAM_URL_TTL_SECONDS:300}
+    s3:
+      # Cloudflare R2 (ou S3/MinIO). enabled=true → upload DIRECT via URL assinada.
+      enabled: ${VIDEO_S3_ENABLED:false}
+      endpoint: ${VIDEO_S3_ENDPOINT:}
+      region: ${VIDEO_S3_REGION:auto}
+      bucket: ${VIDEO_S3_BUCKET:}
+      access-key: ${VIDEO_S3_ACCESS_KEY:}
+      secret-key: ${VIDEO_S3_SECRET_KEY:}
+      public-base-url: ${VIDEO_S3_PUBLIC_BASE_URL:}
+      upload-url-ttl-seconds: ${VIDEO_S3_UPLOAD_URL_TTL_SECONDS:3600}
+      download-url-ttl-seconds: ${VIDEO_S3_DOWNLOAD_URL_TTL_SECONDS:300}
   certificate:
     storage-local-root: ${CERTIFICATE_STORAGE_LOCAL_ROOT:./data/certificates}
     public-web-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
