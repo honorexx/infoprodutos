@@ -73,7 +73,7 @@ function SettingsContent() {
         <dl className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Nome
+              Nome completo
             </dt>
             <dd className="text-sm text-foreground">{user.name}</dd>
           </div>
@@ -97,7 +97,8 @@ function SettingsContent() {
           </div>
         </dl>
         <p className="text-sm text-muted-foreground">
-          Para alterar nome ou e-mail, fale com a administração.{" "}
+          O nome completo é o que aparece no certificado. Para alterar nome ou e-mail, fale com a
+          administração.{" "}
           <Link href="/dashboard" className="text-accent underline-offset-4 hover:underline">
             Voltar ao painel
           </Link>

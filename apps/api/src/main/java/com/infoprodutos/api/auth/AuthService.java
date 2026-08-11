@@ -70,7 +70,10 @@ public class AuthService {
                 .findByCode(RoleCode.STUDENT)
                 .orElseThrow(() -> new IllegalStateException("Papel STUDENT não encontrado - verifique o seed de roles."));
 
-        User user = new User(request.name(), request.email().toLowerCase(), passwordEncoder.encode(request.password()));
+        User user = new User(
+                request.name().trim(),
+                request.email().toLowerCase(),
+                passwordEncoder.encode(request.password()));
         user.setRoles(Set.of(studentRole));
         user = userRepository.save(user);
         notificationService.notifyWelcome(user);

@@ -59,8 +59,16 @@ export function RegisterForm({ nextPath }: { nextPath: string }) {
           </Alert>
         )}
         <div className="flex flex-col gap-2">
-          <Label htmlFor="name">Nome</Label>
-          <Input id="name" autoComplete="name" {...register("name")} />
+          <Label htmlFor="name">Nome completo</Label>
+          <Input
+            id="name"
+            autoComplete="name"
+            placeholder="Ex.: Maria Silva Santos"
+            {...register("name")}
+          />
+          <p className="text-xs text-muted-foreground">
+            Use o nome completo — ele aparece no certificado de conclusão.
+          </p>
           {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
         </div>
         <div className="flex flex-col gap-2">

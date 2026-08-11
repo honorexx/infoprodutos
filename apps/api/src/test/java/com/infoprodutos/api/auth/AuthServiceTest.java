@@ -115,7 +115,7 @@ class AuthServiceTest {
 
     @Test
     void register_duplicateEmail_throwsConflict() {
-        RegisterRequest request = new RegisterRequest("Aluno", "existe@example.com", "SenhaForte123");
+        RegisterRequest request = new RegisterRequest("Aluno Teste", "existe@example.com", "SenhaForte123");
         when(userRepository.existsByEmailIgnoreCase("existe@example.com")).thenReturn(true);
 
         assertThatThrownBy(() -> authService.register(request)).isInstanceOf(ConflictException.class);

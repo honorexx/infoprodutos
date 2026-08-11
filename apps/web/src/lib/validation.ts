@@ -9,7 +9,15 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 export const registerSchema = z
   .object({
-    name: z.string().min(2, "Nome deve ter ao menos 2 caracteres.").max(150),
+    name: z
+      .string()
+      .trim()
+      .min(3, "Informe seu nome completo.")
+      .max(150)
+      .refine(
+        (value) => value.split(/\s+/).filter(Boolean).length >= 2,
+        "Informe nome e sobrenome (como no certificado).",
+      ),
     email: z.string().min(1, "Informe o e-mail.").email("E-mail inválido."),
     password: z
       .string()
