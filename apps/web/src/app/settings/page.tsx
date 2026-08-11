@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { WhatsAppSupportButton } from "@/components/whatsapp-support-button";
+import { SUPPORT_WHATSAPP } from "@/lib/support";
 
 const ROLE_LABELS: Record<RoleCode, string> = {
   SUPER_ADMIN: "Administrador",
@@ -97,12 +99,22 @@ function SettingsContent() {
           </div>
         </dl>
         <p className="text-sm text-muted-foreground">
-          O nome completo é o que aparece no certificado. Para alterar nome ou e-mail, fale com a
-          administração.{" "}
+          O nome completo é o que aparece no certificado. Para alterar nome ou e-mail, fale com o
+          suporte.{" "}
           <Link href="/dashboard" className="text-accent underline-offset-4 hover:underline">
             Voltar ao painel
           </Link>
         </p>
+      </section>
+
+      <section className="flex flex-col gap-4 border-t border-border/70 pt-6">
+        <div>
+          <h2 className="font-heading text-lg font-medium tracking-tight">Suporte</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Precisa de ajuda? Fale conosco no WhatsApp {SUPPORT_WHATSAPP.display}.
+          </p>
+        </div>
+        <WhatsAppSupportButton className="w-fit" />
       </section>
 
       <section className="flex flex-col gap-5 border-t border-border/70 pt-6">

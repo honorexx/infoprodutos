@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronsLeft, ChevronsRight, MessageCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn, getInitials } from "@/lib/utils";
 import { sidebarTransition } from "@/lib/animations";
 import { primaryNavigation, filterNavByRole, type NavItem } from "@/config/navigation";
+import { SUPPORT_WHATSAPP } from "@/lib/support";
 import { SidebarBrand } from "@/components/logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -77,7 +78,33 @@ export function AppSidebar({
         ))}
       </nav>
 
-      <div className="mt-auto border-t border-sidebar-border px-2 py-3">
+      <div className="mt-auto flex flex-col gap-1 border-t border-sidebar-border px-2 py-3">
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href={SUPPORT_WHATSAPP.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center rounded-md px-0 py-2 text-muted-foreground transition-colors hover:bg-sidebar-item-hover hover:text-foreground"
+                aria-label={`Suporte WhatsApp ${SUPPORT_WHATSAPP.display}`}
+              >
+                <MessageCircle className="size-4" />
+              </a>
+            </TooltipTrigger>
+            <TooltipContent side="right">Suporte WhatsApp</TooltipContent>
+          </Tooltip>
+        ) : (
+          <a
+            href={SUPPORT_WHATSAPP.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-item-hover hover:text-foreground"
+          >
+            <MessageCircle className="size-4 shrink-0" />
+            Suporte WhatsApp
+          </a>
+        )}
         <button
           type="button"
           onClick={onToggleCollapsed}

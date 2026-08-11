@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, LogOut } from "lucide-react";
+import { X, LogOut, MessageCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { cn, getInitials } from "@/lib/utils";
 import { primaryNavigation, filterNavByRole } from "@/config/navigation";
+import { SUPPORT_WHATSAPP } from "@/lib/support";
 import { SidebarBrand } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 
@@ -105,7 +106,17 @@ export function MobileNavigation({
               })}
             </nav>
 
-            <div className="border-t border-sidebar-border p-3">
+            <div className="flex flex-col gap-1 border-t border-sidebar-border p-3">
+              <a
+                href={SUPPORT_WHATSAPP.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onClose}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-item-hover hover:text-foreground"
+              >
+                <MessageCircle className="size-4" />
+                Suporte WhatsApp
+              </a>
               <Button
                 variant="ghost"
                 className="w-full justify-start gap-2 text-muted-foreground"
