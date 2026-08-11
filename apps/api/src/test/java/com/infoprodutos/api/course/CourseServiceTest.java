@@ -253,6 +253,7 @@ class CourseServiceTest {
     private Course sampleCourse() {
         User creator = userWithRole(RoleCode.INSTRUCTOR);
         Course course = new Course("Curso Teste", "curso-teste", creator);
+        course.setPriceCents(49_700L);
         setId(course);
         return course;
     }

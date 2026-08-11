@@ -4,14 +4,20 @@ import com.infoprodutos.api.commerce.domain.CommerceOrder;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 
 public interface CommerceOrderRepository extends JpaRepository<CommerceOrder, UUID> {
 
     Optional<CommerceOrder> findByIdempotencyKey(String idempotencyKey);
 
     Optional<CommerceOrder> findByMpPaymentId(String mpPaymentId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from CommerceOrder o where o.id = :id")
+    Optional<CommerceOrder> findLockedById(@Param("id") UUID id);
 
     @Query("""
             select distinct o from CommerceOrder o

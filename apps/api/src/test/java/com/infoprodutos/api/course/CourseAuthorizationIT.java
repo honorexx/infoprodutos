@@ -46,7 +46,8 @@ class CourseAuthorizationIT extends AbstractIntegrationTest {
     void instructorCanCreateAndBecomesOwner() throws Exception {
         String token = createAndLogin("prof1.curso@example.com", RoleCode.INSTRUCTOR);
 
-        String body = objectMapper.writeValueAsString(new CourseCreatePayload("Curso do Professor 1", null, null, null));
+        String body = objectMapper.writeValueAsString(
+                new CourseCreatePayload("Curso do Professor 1", null, null, java.math.BigDecimal.TEN, 10_000L));
         mockMvc.perform(post("/api/v1/courses")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -60,7 +61,8 @@ class CourseAuthorizationIT extends AbstractIntegrationTest {
     void studentCannotCreateCourse() throws Exception {
         String token = createAndLogin("aluno.curso@example.com", RoleCode.STUDENT);
 
-        String body = objectMapper.writeValueAsString(new CourseCreatePayload("Curso Indevido", null, null, null));
+        String body = objectMapper.writeValueAsString(
+                new CourseCreatePayload("Curso Indevido", null, null, java.math.BigDecimal.TEN, 10_000L));
         mockMvc.perform(post("/api/v1/courses")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -73,7 +75,8 @@ class CourseAuthorizationIT extends AbstractIntegrationTest {
         String owner = createAndLogin("dono.curso@example.com", RoleCode.INSTRUCTOR);
         String intruder = createAndLogin("intruso.curso@example.com", RoleCode.INSTRUCTOR);
 
-        String createBody = objectMapper.writeValueAsString(new CourseCreatePayload("Curso Alheio", null, null, null));
+        String createBody = objectMapper.writeValueAsString(
+                new CourseCreatePayload("Curso Alheio", null, null, java.math.BigDecimal.TEN, 10_000L));
         var createResult = mockMvc.perform(post("/api/v1/courses")
                         .header("Authorization", "Bearer " + owner)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -83,7 +86,16 @@ class CourseAuthorizationIT extends AbstractIntegrationTest {
         String courseId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asText();
 
         String updateBody = objectMapper.writeValueAsString(
-                new CourseUpdatePayload("Tentativa de edição indevida", null, null, null, null, null, true, null));
+                new CourseUpdatePayload(
+                        "Tentativa de edição indevida",
+                        null,
+                        null,
+                        java.math.BigDecimal.TEN,
+                        10_000L,
+                        null,
+                        null,
+                        true,
+                        null));
         mockMvc.perform(put("/api/v1/courses/" + courseId)
                         .header("Authorization", "Bearer " + intruder)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -96,7 +108,8 @@ class CourseAuthorizationIT extends AbstractIntegrationTest {
         String owner = createAndLogin("dono2.curso@example.com", RoleCode.INSTRUCTOR);
         String student = createAndLogin("aluno2.curso@example.com", RoleCode.STUDENT);
 
-        String createBody = objectMapper.writeValueAsString(new CourseCreatePayload("Curso Rascunho", null, null, null));
+        String createBody = objectMapper.writeValueAsString(
+                new CourseCreatePayload("Curso Rascunho", null, null, java.math.BigDecimal.TEN, 10_000L));
         var createResult = mockMvc.perform(post("/api/v1/courses")
                         .header("Authorization", "Bearer " + owner)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,7 +127,8 @@ class CourseAuthorizationIT extends AbstractIntegrationTest {
         String owner = createAndLogin("dono3.curso@example.com", RoleCode.INSTRUCTOR);
         String student = createAndLogin("aluno3.curso@example.com", RoleCode.STUDENT);
 
-        String createBody = objectMapper.writeValueAsString(new CourseCreatePayload("Curso Publicado", null, null, null));
+        String createBody = objectMapper.writeValueAsString(
+                new CourseCreatePayload("Curso Publicado", null, null, java.math.BigDecimal.TEN, 10_000L));
         var createResult = mockMvc.perform(post("/api/v1/courses")
                         .header("Authorization", "Bearer " + owner)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -135,7 +149,8 @@ class CourseAuthorizationIT extends AbstractIntegrationTest {
     void moduleAndLessonCrudFlow_reorderAndPublish() throws Exception {
         String owner = createAndLogin("dono.curriculo@example.com", RoleCode.INSTRUCTOR);
 
-        String createBody = objectMapper.writeValueAsString(new CourseCreatePayload("Curso com Currículo", null, null, null));
+        String createBody = objectMapper.writeValueAsString(
+                new CourseCreatePayload("Curso com Currículo", null, null, java.math.BigDecimal.TEN, 10_000L));
         var createResult = mockMvc.perform(post("/api/v1/courses")
                         .header("Authorization", "Bearer " + owner)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -203,13 +218,15 @@ class CourseAuthorizationIT extends AbstractIntegrationTest {
 
     private record LoginPayload(String email, String password) {}
 
-    private record CourseCreatePayload(String title, String slug, String description, java.math.BigDecimal workloadHours) {}
+    private record CourseCreatePayload(
+            String title, String slug, String description, java.math.BigDecimal workloadHours, Long priceCents) {}
 
     private record CourseUpdatePayload(
             String title,
             String description,
             String coverImageUrl,
             java.math.BigDecimal workloadHours,
+            Long priceCents,
             java.math.BigDecimal minCompletionPercentage,
             java.math.BigDecimal minPassingScore,
             boolean certificateEnabled,

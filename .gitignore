@@ -11,6 +11,7 @@ Thumbs.db
 
 # Dados locais de banco (usados apenas para testes manuais fora do Docker)
 .localpg/
+.localpg.log
 
 # Storage local de vídeos/materiais (dev)
 apps/api/data/
@@ -32,8 +33,10 @@ apps/web/.env*.local
 apps/web/*.tsbuildinfo
 apps/web/next-env.d.ts
 apps/web/coverage/
+.vercel/
 
 # Segredos locais (nunca commitar; usar .env.example como referência)
 .env
 .env.local
 *.local.env
+.tools/

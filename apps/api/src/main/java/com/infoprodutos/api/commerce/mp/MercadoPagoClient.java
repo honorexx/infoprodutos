@@ -29,7 +29,8 @@ public interface MercadoPagoClient {
             String status,
             String externalReference,
             String preferenceId,
-            long transactionAmountCents) {
+            long transactionAmountCents,
+            String currency) {
 
         public boolean isApproved() {
             return "approved".equalsIgnoreCase(status);

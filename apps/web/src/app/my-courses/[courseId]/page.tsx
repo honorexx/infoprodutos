@@ -169,6 +169,9 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
     return () => {
       cancelled = true;
     };
+    // Dependemos apenas dos campos que abrem o stream; refreshSummary atualiza
+    // o objeto selectedLesson e não deve reiniciar a mesma aula em loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enrollment, selectedLesson?.lessonId, selectedLesson?.currentVideoAssetId, refreshSummary]);
 
   useEffect(() => {

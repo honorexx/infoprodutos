@@ -23,7 +23,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Sincroniza com a preferência salva do usuário (localStorage é externo ao React).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "1");
   }, []);
 

@@ -82,7 +82,10 @@ public class MercadoPagoWebhookController {
                 }
             }
         } catch (Exception e) {
-            log.warn("Erro ao processar webhook MP paymentId={}: {}", paymentId, e.toString());
+            log.error("Erro ao processar webhook MP paymentId={}", paymentId, e);
+            // Não confirme uma notificação que não foi processada. O status 503 permite
+            // que o provedor tente novamente sem duplicar a matrícula (serviço idempotente).
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).build();
         }
         return ResponseEntity.ok().build();
     }
