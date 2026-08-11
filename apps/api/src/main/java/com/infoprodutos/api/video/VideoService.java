@@ -12,6 +12,7 @@ import com.infoprodutos.api.course.LessonService;
 import com.infoprodutos.api.course.domain.Lesson;
 import com.infoprodutos.api.course.repository.LessonRepository;
 import com.infoprodutos.api.enrollment.EnrollmentAccessGuard;
+import com.infoprodutos.api.enrollment.ProgressService;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.video.domain.ProcessingStatus;
 import com.infoprodutos.api.video.domain.StorageProviderType;
@@ -56,6 +57,7 @@ public class VideoService {
     private final LessonService lessonService;
     private final CourseAccessGuard accessGuard;
     private final EnrollmentAccessGuard enrollmentAccessGuard;
+    private final ProgressService progressService;
     private final VideoStorageProvider storageProvider;
     private final VideoStorageProperties storageProperties;
     private final S3StorageProperties s3StorageProperties;
@@ -499,6 +501,7 @@ public class VideoService {
         }
         Lesson lesson = lessonService.findActiveOrThrow(asset.getLessonId());
         enrollmentAccessGuard.requireLessonContentAccess(lesson, principal);
+        progressService.requireSequentialAccess(lesson, principal);
     }
 
     private void markFailed(VideoAsset asset, String reason) {

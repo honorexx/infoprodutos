@@ -13,7 +13,7 @@ import { ProtectedRoute } from "@/components/protected-route";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch } from "@/lib/api-client";
-import type { DashboardStats, Enrollment, ProgressSummary } from "@/lib/types";
+import type { DashboardStats, Enrollment, ProgressSummary, StreamUrl } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -160,6 +160,7 @@ function StudentExperience({
 }) {
   const [enrollments, setEnrollments] = useState<Enrollment[] | null>(null);
   const [progressById, setProgressById] = useState<Record<string, ProgressSummary>>({});
+  const [nextLessonThumbnailUrl, setNextLessonThumbnailUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -206,11 +207,32 @@ function StudentExperience({
           module: mod.moduleTitle,
           duration: formatLessonDuration(lesson.durationSeconds),
           href: `/my-courses/${primary!.courseId}`,
+          currentVideoAssetId: lesson.currentVideoAssetId,
         };
       }
     }
     return null;
   })();
+
+  useEffect(() => {
+    const videoAssetId = nextFromProgress?.currentVideoAssetId;
+    if (!videoAssetId) {
+      setNextLessonThumbnailUrl(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const stream = await apiFetch<StreamUrl>(`/videos/${videoAssetId}/stream-url`);
+        if (!cancelled) setNextLessonThumbnailUrl(stream.thumbnailUrl ?? null);
+      } catch {
+        if (!cancelled) setNextLessonThumbnailUrl(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nextFromProgress?.currentVideoAssetId]);
 
   const current = primary
     ? {
@@ -373,6 +395,7 @@ function StudentExperience({
                 module={nextFromProgress.module}
                 duration={nextFromProgress.duration}
                 href={nextFromProgress.href}
+                thumbnailUrl={nextLessonThumbnailUrl}
               />
             ) : (
               <aside className="rounded-md border border-border bg-surface p-5">

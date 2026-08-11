@@ -10,6 +10,7 @@ import {
   Award,
   CheckCircle2,
   Circle,
+  Lock,
   PlayCircle,
 } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -30,6 +31,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 type FlatLesson = LessonProgressItem & { moduleId: string; moduleTitle: string };
+
+function isLessonUnlocked(flatLessons: FlatLesson[], index: number): boolean {
+  if (index <= 0) return true;
+  return flatLessons[index - 1]?.progressStatus === "COMPLETED";
+}
 
 function StudentCourseContent({ courseId }: { courseId: string }) {
   const router = useRouter();
@@ -326,28 +332,42 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
                   </div>
                   <ul className="flex flex-col border-l border-border">
                     {mod.lessons.map((lesson) => {
+                      const flatIndex = flatLessons.findIndex((l) => l.lessonId === lesson.lessonId);
+                      const unlocked = isLessonUnlocked(flatLessons, flatIndex);
                       const active = lesson.lessonId === selectedLessonId;
                       const done = lesson.progressStatus === "COMPLETED";
                       return (
                         <li key={lesson.lessonId}>
                           <button
                             type="button"
-                            onClick={() => setSelectedLessonId(lesson.lessonId)}
+                            disabled={!unlocked}
+                            onClick={() => {
+                              if (!unlocked) {
+                                toast.error("Conclua a aula anterior antes de avançar.");
+                                return;
+                              }
+                              setSelectedLessonId(lesson.lessonId);
+                            }}
                             aria-current={active ? "true" : undefined}
                             className={cn(
                               "relative flex w-full items-start gap-2 py-2 pr-2 pl-3 text-left text-sm transition-colors",
-                              active
-                                ? "bg-primary-soft text-primary-soft-foreground"
-                                : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+                              !unlocked && "cursor-not-allowed opacity-50",
+                              unlocked &&
+                                (active
+                                  ? "bg-primary-soft text-primary-soft-foreground"
+                                  : "text-muted-foreground hover:bg-surface-hover hover:text-foreground"),
+                              !unlocked && "text-muted-foreground",
                             )}
                           >
-                            {active && (
+                            {active && unlocked && (
                               <span
                                 aria-hidden
                                 className="absolute top-1.5 bottom-1.5 left-0 w-0.5 bg-primary"
                               />
                             )}
-                            {done ? (
+                            {!unlocked ? (
+                              <Lock className="mt-0.5 size-3.5 shrink-0" />
+                            ) : done ? (
                               <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
                             ) : active ? (
                               <PlayCircle className="mt-0.5 size-3.5 shrink-0 text-primary" />
@@ -427,12 +447,10 @@ function StudentCourseContent({ courseId }: { courseId: string }) {
                 {nextLesson ? (
                   <Button
                     className="ml-auto"
+                    disabled={selectedLesson.progressStatus !== "COMPLETED"}
                     onClick={() => {
-                      if (selectedLesson.progressStatus !== "COMPLETED") {
-                        void goToNextAfterComplete();
-                      } else {
-                        setSelectedLessonId(nextLesson.lessonId);
-                      }
+                      if (selectedLesson.progressStatus !== "COMPLETED") return;
+                      setSelectedLessonId(nextLesson.lessonId);
                     }}
                   >
                     {nextLesson.moduleId !== selectedLesson.moduleId

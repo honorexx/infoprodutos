@@ -14,6 +14,7 @@ import com.infoprodutos.api.course.domain.Course;
 import com.infoprodutos.api.course.domain.Lesson;
 import com.infoprodutos.api.course.domain.LessonStatus;
 import com.infoprodutos.api.course.domain.Module;
+import com.infoprodutos.api.course.domain.ModuleStatus;
 import com.infoprodutos.api.course.repository.LessonRepository;
 import com.infoprodutos.api.course.repository.ModuleRepository;
 import com.infoprodutos.api.enrollment.domain.Enrollment;
@@ -21,12 +22,14 @@ import com.infoprodutos.api.enrollment.domain.EnrollmentStatus;
 import com.infoprodutos.api.enrollment.domain.LessonProgress;
 import com.infoprodutos.api.enrollment.domain.LessonProgressStatus;
 import com.infoprodutos.api.enrollment.dto.ProgressHeartbeatRequest;
+import com.infoprodutos.api.enrollment.repository.EnrollmentRepository;
 import com.infoprodutos.api.enrollment.repository.LessonProgressRepository;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.user.domain.Role;
 import com.infoprodutos.api.user.domain.RoleCode;
 import com.infoprodutos.api.user.domain.User;
 import java.lang.reflect.Field;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -41,6 +44,9 @@ class ProgressServiceTest {
 
     @Mock
     private EnrollmentService enrollmentService;
+
+    @Mock
+    private EnrollmentRepository enrollmentRepository;
 
     @Mock
     private LessonProgressRepository lessonProgressRepository;
@@ -68,6 +74,7 @@ class ProgressServiceTest {
     private User student;
     private User otherStudent;
     private Course course;
+    private Module module;
     private Lesson lesson;
     private Enrollment enrollment;
 
@@ -75,6 +82,7 @@ class ProgressServiceTest {
     void setUp() throws Exception {
         progressService = new ProgressService(
                 enrollmentService,
+                enrollmentRepository,
                 lessonProgressRepository,
                 lessonService,
                 lessonRepository,
@@ -87,7 +95,8 @@ class ProgressServiceTest {
         otherStudent = userWithRole(RoleCode.STUDENT, "outro@test.local");
         course = new Course("Curso", "curso", student);
         setId(course, UUID.randomUUID());
-        Module module = new Module(course, "Módulo", 0);
+        module = new Module(course, "Módulo", 0);
+        module.setStatus(ModuleStatus.PUBLISHED);
         setId(module, UUID.randomUUID());
         lesson = new Lesson(module, "Aula", 0);
         lesson.setStatus(LessonStatus.PUBLISHED);
@@ -99,10 +108,18 @@ class ProgressServiceTest {
         enrollment.setStatus(EnrollmentStatus.ACTIVE);
     }
 
+    private void stubFirstLessonSequentialOk() {
+        when(moduleRepository.findAllActiveByCourseOrderByOrderIndex(course.getId()))
+                .thenReturn(List.of(module));
+        when(lessonRepository.findAllActiveByModuleOrderByOrderIndex(module.getId()))
+                .thenReturn(List.of(lesson));
+    }
+
     @Test
     void heartbeat_marksCompletedAt90Percent() throws Exception {
         when(enrollmentService.findOrThrow(enrollment.getId())).thenReturn(enrollment);
         when(lessonService.findActiveOrThrow(lesson.getId())).thenReturn(lesson);
+        stubFirstLessonSequentialOk();
 
         LessonProgress progress = new LessonProgress(enrollment, lesson);
         setId(progress, UUID.randomUUID());
@@ -122,6 +139,7 @@ class ProgressServiceTest {
     void heartbeat_doesNotRegressFromCompleted() throws Exception {
         when(enrollmentService.findOrThrow(enrollment.getId())).thenReturn(enrollment);
         when(lessonService.findActiveOrThrow(lesson.getId())).thenReturn(lesson);
+        stubFirstLessonSequentialOk();
 
         LessonProgress progress = new LessonProgress(enrollment, lesson);
         setId(progress, UUID.randomUUID());
@@ -144,6 +162,7 @@ class ProgressServiceTest {
         lesson.setDurationSeconds(null);
         when(enrollmentService.findOrThrow(enrollment.getId())).thenReturn(enrollment);
         when(lessonService.findActiveOrThrow(lesson.getId())).thenReturn(lesson);
+        stubFirstLessonSequentialOk();
 
         LessonProgress progress = new LessonProgress(enrollment, lesson);
         setId(progress, UUID.randomUUID());
@@ -166,6 +185,42 @@ class ProgressServiceTest {
                 .isInstanceOf(ForbiddenOperationException.class);
 
         verify(lessonProgressRepository, never()).save(any());
+    }
+
+    @Test
+    void start_rejectsWhenPreviousPublishedLessonIncomplete() throws Exception {
+        Lesson lesson2 = new Lesson(module, "Aula 2", 1);
+        lesson2.setStatus(LessonStatus.PUBLISHED);
+        setId(lesson2, UUID.randomUUID());
+
+        when(enrollmentService.findOrThrow(enrollment.getId())).thenReturn(enrollment);
+        when(lessonService.findActiveOrThrow(lesson2.getId())).thenReturn(lesson2);
+        when(moduleRepository.findAllActiveByCourseOrderByOrderIndex(course.getId()))
+                .thenReturn(List.of(module));
+        when(lessonRepository.findAllActiveByModuleOrderByOrderIndex(module.getId()))
+                .thenReturn(List.of(lesson, lesson2));
+        when(lessonProgressRepository.findAllByEnrollmentIdWithLesson(enrollment.getId()))
+                .thenReturn(List.of());
+
+        CustomUserDetails principal = new CustomUserDetails(student);
+
+        assertThatThrownBy(() -> progressService.start(enrollment.getId(), lesson2.getId(), principal))
+                .isInstanceOf(ForbiddenOperationException.class)
+                .hasMessageContaining("Conclua a aula anterior antes de avançar.");
+
+        verify(lessonProgressRepository, never()).save(any());
+    }
+
+    @Test
+    void requireSequentialAccess_noopWithoutActiveEnrollment() {
+        CustomUserDetails principal = new CustomUserDetails(student);
+        when(courseAccessGuard.canManage(course.getId(), principal)).thenReturn(false);
+        when(enrollmentRepository.findByStudentIdAndCourseId(student.getId(), course.getId()))
+                .thenReturn(Optional.empty());
+
+        progressService.requireSequentialAccess(lesson, principal);
+
+        verify(moduleRepository, never()).findAllActiveByCourseOrderByOrderIndex(any());
     }
 
     private static User userWithRole(String roleCode, String email) throws Exception {

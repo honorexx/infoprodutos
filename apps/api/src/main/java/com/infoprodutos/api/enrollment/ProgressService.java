@@ -20,6 +20,7 @@ import com.infoprodutos.api.enrollment.dto.LessonProgressResponse;
 import com.infoprodutos.api.enrollment.dto.ProgressHeartbeatRequest;
 import com.infoprodutos.api.course.CourseCoverUrls;
 import com.infoprodutos.api.enrollment.dto.ProgressSummaryResponse;
+import com.infoprodutos.api.enrollment.repository.EnrollmentRepository;
 import com.infoprodutos.api.enrollment.repository.LessonProgressRepository;
 import com.infoprodutos.api.security.CustomUserDetails;
 import com.infoprodutos.api.user.domain.RoleCode;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -37,7 +39,10 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ProgressService {
 
+    private static final String SEQUENTIAL_LOCK_MESSAGE = "Conclua a aula anterior antes de avançar.";
+
     private final EnrollmentService enrollmentService;
+    private final EnrollmentRepository enrollmentRepository;
     private final LessonProgressRepository lessonProgressRepository;
     private final LessonService lessonService;
     private final LessonRepository lessonRepository;
@@ -50,6 +55,7 @@ public class ProgressService {
     public LessonProgressResponse start(UUID enrollmentId, UUID lessonId, CustomUserDetails principal) {
         Enrollment enrollment = requireActiveOwnedEnrollment(enrollmentId, principal);
         Lesson lesson = requireLessonInCourse(lessonId, enrollment.getCourse().getId());
+        requirePriorLessonsCompleted(enrollment, lesson);
 
         LessonProgress progress = getOrCreate(enrollment, lesson);
         if (progress.getStatus() == LessonProgressStatus.NOT_STARTED) {
@@ -65,6 +71,7 @@ public class ProgressService {
             UUID enrollmentId, UUID lessonId, ProgressHeartbeatRequest request, CustomUserDetails principal) {
         Enrollment enrollment = requireActiveOwnedEnrollment(enrollmentId, principal);
         Lesson lesson = requireLessonInCourse(lessonId, enrollment.getCourse().getId());
+        requirePriorLessonsCompleted(enrollment, lesson);
 
         LessonProgress progress = getOrCreate(enrollment, lesson);
         if (progress.getStatus() == LessonProgressStatus.NOT_STARTED) {
@@ -92,6 +99,7 @@ public class ProgressService {
     public LessonProgressResponse complete(UUID enrollmentId, UUID lessonId, CustomUserDetails principal) {
         Enrollment enrollment = requireActiveOwnedEnrollment(enrollmentId, principal);
         Lesson lesson = requireLessonInCourse(lessonId, enrollment.getCourse().getId());
+        requirePriorLessonsCompleted(enrollment, lesson);
 
         LessonProgress progress = getOrCreate(enrollment, lesson);
         if (progress.getStatus() == LessonProgressStatus.NOT_STARTED) {
@@ -186,6 +194,65 @@ public class ProgressService {
                 canIssue,
                 certificate.map(c -> c.getId().toString()).orElse(null),
                 moduleSummaries);
+    }
+
+    /**
+     * Bloqueia avanço para aulas posteriores até as anteriores publicadas estarem COMPLETED.
+     * No-op para quem gerencia o curso; no-op sem matrícula ACTIVE (caminho FREE_PREVIEW).
+     */
+    public void requireSequentialAccess(Lesson lesson, CustomUserDetails principal) {
+        UUID courseId = lesson.getModule().getCourse().getId();
+        if (courseAccessGuard.canManage(courseId, principal)) {
+            return;
+        }
+        Optional<Enrollment> enrollment = enrollmentRepository
+                .findByStudentIdAndCourseId(principal.getId(), courseId)
+                .filter(e -> e.getStatus() == EnrollmentStatus.ACTIVE);
+        if (enrollment.isEmpty()) {
+            return;
+        }
+        requirePriorLessonsCompleted(enrollment.get(), lesson);
+    }
+
+    private void requirePriorLessonsCompleted(Enrollment enrollment, Lesson targetLesson) {
+        UUID courseId = enrollment.getCourse().getId();
+        UUID targetId = targetLesson.getId();
+
+        List<UUID> priorLessonIds = new ArrayList<>();
+        boolean found = false;
+        for (Module module : moduleRepository.findAllActiveByCourseOrderByOrderIndex(courseId)) {
+            if (module.getStatus() != ModuleStatus.PUBLISHED) {
+                continue;
+            }
+            for (Lesson lesson :
+                    lessonRepository.findAllActiveByModuleOrderByOrderIndex(module.getId())) {
+                if (lesson.getStatus() != LessonStatus.PUBLISHED) {
+                    continue;
+                }
+                if (lesson.getId().equals(targetId)) {
+                    found = true;
+                    break;
+                }
+                priorLessonIds.add(lesson.getId());
+            }
+            if (found) {
+                break;
+            }
+        }
+
+        if (priorLessonIds.isEmpty()) {
+            return;
+        }
+
+        Map<UUID, LessonProgressStatus> statusByLesson = new HashMap<>();
+        for (LessonProgress lp : lessonProgressRepository.findAllByEnrollmentIdWithLesson(enrollment.getId())) {
+            statusByLesson.put(lp.getLesson().getId(), lp.getStatus());
+        }
+        for (UUID priorId : priorLessonIds) {
+            if (statusByLesson.get(priorId) != LessonProgressStatus.COMPLETED) {
+                throw new ForbiddenOperationException(SEQUENTIAL_LOCK_MESSAGE);
+            }
+        }
     }
 
     private Enrollment requireActiveOwnedEnrollment(UUID enrollmentId, CustomUserDetails principal) {

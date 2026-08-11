@@ -149,11 +149,13 @@ export function NextLessonPanel({
   module,
   duration,
   href,
+  thumbnailUrl,
 }: {
   title: string;
   module: string;
   duration: string;
   href: string;
+  thumbnailUrl?: string | null;
 }) {
   return (
     <aside className="rounded-md border border-border bg-surface p-4 sm:p-5">
@@ -161,6 +163,14 @@ export function NextLessonPanel({
         Próxima aula
       </p>
       <div className="relative mt-4 aspect-video overflow-hidden rounded-md bg-gradient-to-br from-navy-800 to-navy-950">
+        {thumbnailUrl ? (
+          <ApiImage
+            src={thumbnailUrl}
+            alt=""
+            className="absolute inset-0 size-full object-cover"
+            fallbackClassName="absolute inset-0"
+          />
+        ) : null}
         <span className="absolute inset-0 flex items-center justify-center">
           <span className="flex size-11 items-center justify-center rounded-full border border-primary/50 bg-navy-950/60 text-primary">
             <Play className="size-4 fill-current" />
