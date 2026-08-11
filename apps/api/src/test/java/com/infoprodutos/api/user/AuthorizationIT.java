@@ -54,6 +54,11 @@ class AuthorizationIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void healthEndpointIsPublicAndHealthy() throws Exception {
+        mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
+    }
+
+    @Test
     void superAdminCanListUsers() throws Exception {
         String accessToken = createAndLoginSuperAdmin("admin.autorizacao@example.com");
 

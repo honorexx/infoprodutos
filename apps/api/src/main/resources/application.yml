@@ -20,6 +20,22 @@ server:
     include-stacktrace: never
     include-binding-errors: never
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  health:
+    # O armazenamento do container é efêmero e o espaço livre não representa
+    # a saúde da API. Banco e aplicação continuam participando do resultado.
+    diskspace:
+      enabled: false
+
 spring.servlet.multipart:
   # PROXY/local only — em produção com R2 o vídeo não passa pela API.
   max-file-size: ${MULTIPART_MAX_FILE_SIZE:2GB}
