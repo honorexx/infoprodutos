@@ -296,6 +296,21 @@ public class CourseService {
         }
 
         String contentType = normalizeCoverContentType(request.contentType(), key);
+        try {
+            var head = storageProvider.head(key);
+            if (head.sizeBytes() <= 0 || head.sizeBytes() > MAX_COVER_BYTES) {
+                storageProvider.delete(key);
+                throw new BadRequestException("Capa vazia ou maior que 5 MB.");
+            }
+            if (head.contentType() == null || !contentType.equalsIgnoreCase(head.contentType())) {
+                storageProvider.delete(key);
+                throw new BadRequestException("O tipo real da capa não confere com o upload autorizado.");
+            }
+        } catch (BadRequestException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BadRequestException("Não foi possível validar a capa enviada. Tente novamente.");
+        }
         String oldKey = course.getCoverImageUrl();
         course.setCoverImageUrl(key);
         course.setCoverMimeType(contentType);

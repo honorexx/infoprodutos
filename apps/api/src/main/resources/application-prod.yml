@@ -6,6 +6,11 @@ spring:
   jpa:
     show-sql: false
 
+server:
+  # Railway/Vercel encaminham o IP real; o container normaliza os headers antes
+  # de o rate limiter consultar request.remoteAddr.
+  forward-headers-strategy: native
+
 app:
   cookie:
     secure: ${COOKIE_SECURE:true}

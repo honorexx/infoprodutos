@@ -178,7 +178,8 @@ public class MercadoPagoClientConfig {
                     node.path("status").asText(""),
                     textOrNull(node, "external_reference"),
                     preferenceId,
-                    cents);
+                    cents,
+                    textOrNull(node, "currency_id"));
         }
 
         private static String textOrNull(JsonNode node, String field) {
@@ -217,7 +218,7 @@ public class MercadoPagoClientConfig {
             if (stored != null) {
                 return stored;
             }
-            return new PaymentResult(paymentId, "pending", null, null, 0L);
+            return new PaymentResult(paymentId, "pending", null, null, 0L, null);
         }
 
         @Override
@@ -230,7 +231,7 @@ public class MercadoPagoClientConfig {
         public PaymentResult approve(
                 String paymentId, String externalReference, String preferenceId, long amountCents) {
             PaymentResult result =
-                    new PaymentResult(paymentId, "approved", externalReference, preferenceId, amountCents);
+                    new PaymentResult(paymentId, "approved", externalReference, preferenceId, amountCents, "BRL");
             payments.put(paymentId, result);
             return result;
         }

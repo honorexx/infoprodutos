@@ -59,7 +59,7 @@ describe("courseFormSchema", () => {
   });
 
   it("aceita carga horária numérica válida", () => {
-    expect(courseFormSchema.safeParse({ title: "Curso", workloadHours: "10" }).success).toBe(true);
+    expect(courseFormSchema.safeParse({ title: "Curso", workloadHours: "10", priceReais: "497" }).success).toBe(true);
   });
 
   it("rejeita carga horária negativa", () => {

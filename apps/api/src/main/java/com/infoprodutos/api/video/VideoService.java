@@ -298,7 +298,7 @@ public class VideoService {
         }
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = BadRequestException.class)
     public VideoAssetResponse completeUpload(UUID videoId, CustomUserDetails principal) {
         VideoAsset asset = findOrThrow(videoId);
         Lesson lesson = requireManageForAsset(asset, principal);
@@ -326,15 +326,30 @@ public class VideoService {
                         "Thumbnail não encontrada no storage. Conclua o PUT antes do upload-complete.");
             }
             try {
-                var head = storageProvider.head(asset.getStorageKey());
-                if (head.sizeBytes() > 0) {
-                    asset.setSizeBytes(head.sizeBytes());
+                var videoHead = storageProvider.head(asset.getStorageKey());
+                var thumbnailHead = storageProvider.head(asset.getThumbnailStorageKey());
+                validateDirectObject(
+                        videoHead,
+                        asset.getMimeType(),
+                        storageProperties.maxFileBytes(),
+                        "Vídeo");
+                validateDirectObject(
+                        thumbnailHead,
+                        asset.getThumbnailMimeType(),
+                        MAX_THUMBNAIL_BYTES,
+                        "Thumbnail");
+                asset.setSizeBytes(videoHead.sizeBytes());
+                if (videoHead.eTag() != null) {
+                    asset.setChecksum(videoHead.eTag());
                 }
-                if (head.eTag() != null) {
-                    asset.setChecksum(head.eTag());
-                }
+            } catch (BadRequestException e) {
+                deleteDirectObjectsQuietly(asset);
+                markFailed(asset, e.getMessage());
+                throw e;
             } catch (Exception e) {
-                log.warn("headObject falhou para {}: {}", videoId, e.getClass().getSimpleName());
+                deleteDirectObjectsQuietly(asset);
+                markFailed(asset, "Não foi possível validar os objetos enviados.");
+                throw new BadRequestException("Não foi possível validar o vídeo enviado. Tente novamente.");
             }
             attachUploadedAsset(asset, lesson);
             auditService.record(principal.getId(), "VIDEO_UPLOADED", "VideoAsset", asset.getId(), null);
@@ -509,6 +524,34 @@ public class VideoService {
         asset.setProcessingStatus(ProcessingStatus.FAILED);
         asset.setFailureReason(reason);
         videoAssetRepository.save(asset);
+    }
+
+    private static void validateDirectObject(
+            VideoStorageProvider.ObjectStat stat, String expectedContentType, long maxBytes, String label) {
+        if (stat.sizeBytes() <= 0) {
+            throw new BadRequestException(label + " vazio ou com tamanho inválido.");
+        }
+        if (stat.sizeBytes() > maxBytes) {
+            throw new BadRequestException(label + " excede o tamanho máximo permitido.");
+        }
+        if (stat.contentType() == null
+                || expectedContentType == null
+                || !expectedContentType.equalsIgnoreCase(stat.contentType())) {
+            throw new BadRequestException(label + " possui tipo de conteúdo diferente do autorizado.");
+        }
+    }
+
+    private void deleteDirectObjectsQuietly(VideoAsset asset) {
+        for (String key : new String[] {asset.getStorageKey(), asset.getThumbnailStorageKey()}) {
+            if (key == null || key.isBlank()) {
+                continue;
+            }
+            try {
+                storageProvider.delete(key);
+            } catch (Exception ignored) {
+                // Best-effort: o registro continua marcado como falho.
+            }
+        }
     }
 
     private String normalizeVideoContentType(String contentType, String filename) {

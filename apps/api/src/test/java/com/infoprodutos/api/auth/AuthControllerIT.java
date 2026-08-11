@@ -43,7 +43,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
     @Test
     void registerWithDuplicateEmail_returnsConflict() throws Exception {
         String email = "duplicado@example.com";
-        String body = objectMapper.writeValueAsString(new RegisterPayload("Aluno", email, "SenhaForte123"));
+        String body = objectMapper.writeValueAsString(new RegisterPayload("Aluno Teste", email, "SenhaForte123"));
 
         mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk());
@@ -55,7 +55,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
     void loginWithWrongPassword_returnsGenericUnauthorized() throws Exception {
         String email = "aluno.senha@example.com";
         String registerBody =
-                objectMapper.writeValueAsString(new RegisterPayload("Aluno", email, "SenhaForte123"));
+                objectMapper.writeValueAsString(new RegisterPayload("Aluno Teste", email, "SenhaForte123"));
         mockMvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(registerBody))
                 .andExpect(status().isOk());
 
@@ -74,7 +74,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
     void refreshRotatesTokenAndOldCookieBecomesInvalid() throws Exception {
         String email = "refresh.flow@example.com";
         String registerBody =
-                objectMapper.writeValueAsString(new RegisterPayload("Aluno", email, "SenhaForte123"));
+                objectMapper.writeValueAsString(new RegisterPayload("Aluno Teste", email, "SenhaForte123"));
         MvcResult registerResult = mockMvc.perform(
                         post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(registerBody))
                 .andExpect(status().isOk())
@@ -98,7 +98,7 @@ class AuthControllerIT extends AbstractIntegrationTest {
     void logoutInvalidatesRefreshToken() throws Exception {
         String email = "logout.flow@example.com";
         String registerBody =
-                objectMapper.writeValueAsString(new RegisterPayload("Aluno", email, "SenhaForte123"));
+                objectMapper.writeValueAsString(new RegisterPayload("Aluno Teste", email, "SenhaForte123"));
         MvcResult registerResult = mockMvc.perform(
                         post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(registerBody))
                 .andExpect(status().isOk())

@@ -24,7 +24,11 @@ export async function startCheckout(input: { courseId?: string; packageId?: stri
       throw new Error("Checkout cancelado: configure o Mercado Pago e tente de novo.");
     }
     await apiFetch(`/checkout/orders/${session.orderId}/simulate-payment`, { method: "POST" });
-    window.location.href = `/checkout/return?orderId=${session.orderId}&status=success&mock=1`;
+    const returnUrl = new URL("/checkout/return", window.location.origin);
+    returnUrl.searchParams.set("orderId", session.orderId);
+    returnUrl.searchParams.set("status", "success");
+    returnUrl.searchParams.set("mock", "1");
+    window.location.assign(returnUrl.href);
     return session;
   }
 
@@ -33,7 +37,7 @@ export async function startCheckout(input: { courseId?: string; packageId?: stri
     throw new Error("Checkout sem URL do Mercado Pago.");
   }
   // Em localhost o MP não redireciona de volta (só HTTPS). Após pagar, volte e abra Meus cursos.
-  window.location.href = url;
+  window.location.assign(url);
   return session;
 }
 

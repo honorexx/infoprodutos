@@ -62,7 +62,6 @@ function UsersAdminContent() {
 
   useEffect(() => {
     // Carregamento inicial de dados via API; setState assíncrono após o await é intencional.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadUsers();
   }, [loadUsers]);
 

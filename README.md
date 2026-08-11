@@ -1,6 +1,6 @@
 # Infoprodutos — Plataforma de Cursos Online
 
-> Status atual: **Fase 1 concluída** (fundação: monorepo, autenticação, RBAC). Cursos, vídeos, IA, certificados e pagamentos ainda não foram implementados — ver `docs/ROADMAP.md`.
+> Status atual: **MVP funcional em hardening**. Autenticação/RBAC, cursos, vídeos e materiais, matrículas/progresso, quizzes, pipeline de IA com revisão humana, certificados e pagamentos via Mercado Pago já estão implementados. A revisão de segurança e a ampliação da cobertura de testes continuam — ver `docs/ROADMAP.md`.
 
 Plataforma própria de cursos online e infoprodutos (conceitualmente um LMS), com painel administrativo, área do professor e área do aluno, incluindo um pipeline de IA para apoiar a criação de exercícios a partir da transcrição das aulas — sempre com revisão humana obrigatória antes da publicação.
 
@@ -32,7 +32,7 @@ Toda a especificação técnica do projeto vive em [`/docs`](./docs):
 docker-compose.yml   # Postgres + api + web para desenvolvimento local
 ```
 
-## Stack implementada na Fase 1
+## Stack implementada
 
 - **Frontend:** Next.js 16 (App Router), TypeScript, Tailwind CSS 4, shadcn/ui, React Hook Form + Zod, pnpm.
 - **Backend:** Java 21, Spring Boot 3.5.16, Spring Security, Spring Data JPA, Flyway, springdoc-openapi, JWT (jjwt).

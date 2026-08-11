@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
@@ -38,14 +38,14 @@ function PackagesContent() {
     handleSubmit,
     reset,
     setValue,
-    watch,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<PackageFormInput>({
     resolver: zodResolver(packageFormSchema),
     defaultValues: { active: true, courseIds: [], priceReais: "2000" },
   });
 
-  const selectedIds = watch("courseIds") ?? [];
+  const selectedIds = useWatch({ control, name: "courseIds" }) ?? [];
 
   const load = useCallback(async () => {
     try {

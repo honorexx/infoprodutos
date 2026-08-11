@@ -45,7 +45,7 @@ describe("CoursesPage", () => {
   });
 
   it("lista os cursos retornados pela API", async () => {
-    apiFetchMock.mockResolvedValueOnce({
+    const coursesPage = {
       content: [
         {
           id: "course-1",
@@ -67,7 +67,10 @@ describe("CoursesPage", () => {
       size: 50,
       first: true,
       last: true,
-    });
+    };
+    apiFetchMock.mockImplementation((path: string) =>
+      path.startsWith("/courses?") ? Promise.resolve(coursesPage) : Promise.resolve({ items: [], unreadCount: 0 }),
+    );
 
     render(<CoursesPage />);
 
@@ -76,7 +79,7 @@ describe("CoursesPage", () => {
   });
 
   it("mostra estado vazio quando não há cursos", async () => {
-    apiFetchMock.mockResolvedValueOnce({
+    const emptyPage = {
       content: [],
       totalElements: 0,
       totalPages: 0,
@@ -84,7 +87,10 @@ describe("CoursesPage", () => {
       size: 50,
       first: true,
       last: true,
-    });
+    };
+    apiFetchMock.mockImplementation((path: string) =>
+      path.startsWith("/courses?") ? Promise.resolve(emptyPage) : Promise.resolve({ items: [], unreadCount: 0 }),
+    );
 
     render(<CoursesPage />);
 
@@ -92,7 +98,7 @@ describe("CoursesPage", () => {
   });
 
   it("cria um novo curso e navega para a página de detalhe", async () => {
-    apiFetchMock.mockResolvedValueOnce({
+    const emptyPage = {
       content: [],
       totalElements: 0,
       totalPages: 0,
@@ -100,8 +106,16 @@ describe("CoursesPage", () => {
       size: 50,
       first: true,
       last: true,
+    };
+    apiFetchMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/courses" && options?.method === "POST") {
+        return Promise.resolve({ id: "new-course-id" });
+      }
+      if (path.startsWith("/courses?")) {
+        return Promise.resolve(emptyPage);
+      }
+      return Promise.resolve({ items: [], unreadCount: 0 });
     });
-    apiFetchMock.mockResolvedValueOnce({ id: "new-course-id" });
 
     const user = userEvent.setup();
     render(<CoursesPage />);

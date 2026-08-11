@@ -36,8 +36,7 @@ function CertificatesContent() {
   async function downloadPdf(id: string, title: string) {
     try {
       const token = getAccessToken();
-      const stamp = String(Math.floor(performance.now()));
-      const response = await fetch(`${API_BASE_URL}/certificates/${id}/pdf?t=${stamp}`, {
+      const response = await fetch(`${API_BASE_URL}/certificates/${id}/pdf`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         cache: "no-store",
       });

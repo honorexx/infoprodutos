@@ -175,9 +175,11 @@ public class CheckoutService {
         var payments = mercadoPagoClient.searchPaymentsByExternalReference(order.getId().toString());
         for (var payment : payments) {
             if (payment.isApproved()) {
-                approveAndGrant(order, payment.paymentId());
-                return OrderStatusResponse.from(
-                        orderRepository.findByIdWithDetails(order.getId()).orElse(order));
+                if (approveIfConsistent(order, payment)) {
+                    return OrderStatusResponse.from(
+                            orderRepository.findByIdWithDetails(order.getId()).orElse(order));
+                }
+                continue;
             }
             if (payment.isRejected() && order.getStatus() == OrderStatus.PENDING) {
                 order.setMpPaymentId(payment.paymentId());
@@ -216,20 +218,21 @@ public class CheckoutService {
         }
 
         CommerceOrder order = orderRepository
-                .findByIdWithDetails(orderId)
+                .findLockedById(orderId)
                 .orElseThrow(() -> new NotFoundException("Pedido não encontrado para o pagamento."));
 
         if (order.getStatus() == OrderStatus.APPROVED) {
             return;
         }
 
-        order.setMpPaymentId(payment.paymentId());
         if (payment.isApproved()) {
-            approveAndGrant(order, payment.paymentId());
+            approveIfConsistent(order, payment);
         } else if (payment.isRejected()) {
+            order.setMpPaymentId(payment.paymentId());
             order.setStatus(OrderStatus.REJECTED);
             orderRepository.save(order);
         } else {
+            order.setMpPaymentId(payment.paymentId());
             orderRepository.save(order);
         }
     }
@@ -267,6 +270,50 @@ public class CheckoutService {
                 order.getId(),
                 paymentId,
                 order.getItems().size());
+    }
+
+    private boolean approveIfConsistent(CommerceOrder order, MercadoPagoClient.PaymentResult payment) {
+        if (payment.transactionAmountCents() != order.getAmountCents()) {
+            log.error(
+                    "Pagamento MP {} não confere com pedido {}: valor recebido={} esperado={}",
+                    payment.paymentId(),
+                    order.getId(),
+                    payment.transactionAmountCents(),
+                    order.getAmountCents());
+            return false;
+        }
+        if (payment.currency() == null || !order.getCurrency().equalsIgnoreCase(payment.currency())) {
+            log.error(
+                    "Pagamento MP {} não confere com pedido {}: moeda recebida={} esperada={}",
+                    payment.paymentId(),
+                    order.getId(),
+                    payment.currency(),
+                    order.getCurrency());
+            return false;
+        }
+        if (payment.preferenceId() != null
+                && !payment.preferenceId().isBlank()
+                && order.getMpPreferenceId() != null
+                && !order.getMpPreferenceId().equals(payment.preferenceId())) {
+            log.error(
+                    "Pagamento MP {} não confere com pedido {}: preferência recebida={} esperada={}",
+                    payment.paymentId(),
+                    order.getId(),
+                    payment.preferenceId(),
+                    order.getMpPreferenceId());
+            return false;
+        }
+        var paymentOwner = orderRepository.findByMpPaymentId(payment.paymentId());
+        if (paymentOwner.isPresent() && !paymentOwner.get().getId().equals(order.getId())) {
+            log.error(
+                    "Pagamento MP {} já está associado ao pedido {} e não pode aprovar {}",
+                    payment.paymentId(),
+                    paymentOwner.get().getId(),
+                    order.getId());
+            return false;
+        }
+        approveAndGrant(order, payment.paymentId());
+        return true;
     }
 
     private static String trimSlash(String url) {
